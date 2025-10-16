@@ -178,28 +178,28 @@ cd ../backend
 go run main.go
 ```
 
-🧪 Testing
-🧩 Frontend Tests
+## 🧪 Testing
+### 🧩 Frontend Tests
 ```bash
 npm run test
 ```
 
 Uses Jest + React Testing Library
 
-⚙️ Backend Tests
+### ⚙️ Backend Tests
 ```bash
 go test ./...
 ```
 
 Uses Go’s built-in testing suite
 
-📦 Deployment
+### 📦 Deployment
 Component	Platform	Notes
 Frontend	Vercel	Auto-deployed from main branch
 Backend	Render / Fly.io	Dockerized Go API
 Database	cPanel (MySQL)	Managed static dataset
 CI/CD	GitHub Actions	Test → Build → Deploy pipeline
-🌱 Future Growth
+## 🌱 Future Growth
 
 Real-time MLS API integration
 
@@ -211,7 +211,7 @@ AI chatbot assistant for conversational property search
 
 3D virtual tours using Three.js or Pannellum
 
-🧠 Learning Outcomes
+## 🧠 Learning Outcomes
 
 Through Homelytics, I gained experience in:
 
@@ -225,14 +225,14 @@ Implementing CI/CD pipelines and secure environment configs.
 
 Delivering a product-grade UI/UX for real-estate applications.
 
-🧑‍💻 Author
+## 🧑‍💻 Author
 
 Duc Tran
 Software Engineer · Full-Stack Developer · Data Enthusiast
-📍 Fitchburg, MA
-🔗 LinkedIn
- · 🌐 Portfolio
- · ✉️ your.email@example.com
+📍 Boston, MA
+🔗 [LinkedIn](https://www.linkedin.com/in/duc-tran-277564229/)
+ · 🌐 [Portfolio](https://ducportfolio.vercel.app/)
+ · ✉️ thienductranhuu2784@gmail.com
 
 ⭐ Acknowledgements
 
