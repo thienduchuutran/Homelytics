@@ -166,37 +166,30 @@ git clone https://github.com/yourusername/homelytics.git
 cd homelytics
 ```
 2️⃣ Frontend Setup
+```bash
 cd frontend
 npm install
 npm run dev
+```
 
 3️⃣ Backend Setup
+```bash
 cd ../backend
 go run main.go
-
-🔐 Environment Variables
-📁 frontend/.env.local
-NEXT_PUBLIC_API_URL=http://localhost:8080
-NEXT_PUBLIC_MAPS_API_KEY=your_google_maps_api_key
-
-📁 backend/.env
-DB_HOST=localhost
-DB_USER=boxgra6_sd
-DB_PASS=Real_estate650$
-DB_NAME=boxgra6_cali
-JWT_SECRET=your_secret_key
-REDIS_URL=localhost:6379
+```
 
 🧪 Testing
 🧩 Frontend Tests
+```bash
 npm run test
-
+```
 
 Uses Jest + React Testing Library
 
 ⚙️ Backend Tests
+```bash
 go test ./...
-
+```
 
 Uses Go’s built-in testing suite
 
