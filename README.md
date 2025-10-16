@@ -165,14 +165,14 @@ Includes indexing & pagination for efficient queries.
 git clone https://github.com/yourusername/homelytics.git
 cd homelytics
 ```
-2️⃣ Frontend Setup
+#### 2️⃣ Frontend Setup
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-3️⃣ Backend Setup
+#### 3️⃣ Backend Setup
 ```bash
 cd ../backend
 go run main.go
