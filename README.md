@@ -164,6 +164,7 @@ Includes indexing & pagination for efficient queries.
 ```bash
 git clone https://github.com/yourusername/homelytics.git
 cd homelytics
+```
 2️⃣ Frontend Setup
 cd frontend
 npm install
