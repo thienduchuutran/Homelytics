@@ -148,35 +148,37 @@ Includes indexing & pagination for efficient queries.
 
 ```
 
-🧰 Development Setup
-🪜 Prerequisites
+## 🧰 Development Setup  
 
-Node 18 + | Go 1.22 + | MySQL | Redis (optional)
+### 🪜 Prerequisites  
+- **Node.js** 18+  
+- **Go** 1.22+  
+- **MySQL** (provided via phpMyAdmin)  
+- **Redis** (optional, for caching)  
 
-⚡ Installation
-# Clone the repo
+---
+
+### ⚡ Installation  
+
+#### 1️⃣ Clone the Repository  
+```bash
 git clone https://github.com/yourusername/homelytics.git
 cd homelytics
-
-# Frontend
+2️⃣ Frontend Setup
 cd frontend
 npm install
 npm run dev
 
-# Backend
+3️⃣ Backend Setup
 cd ../backend
 go run main.go
 
 🔐 Environment Variables
-
-frontend/.env.local
-
+📁 frontend/.env.local
 NEXT_PUBLIC_API_URL=http://localhost:8080
 NEXT_PUBLIC_MAPS_API_KEY=your_google_maps_api_key
 
-
-backend/.env
-
+📁 backend/.env
 DB_HOST=localhost
 DB_USER=boxgra6_sd
 DB_PASS=Real_estate650$
@@ -185,42 +187,39 @@ JWT_SECRET=your_secret_key
 REDIS_URL=localhost:6379
 
 🧪 Testing
-
-Frontend
-
+🧩 Frontend Tests
 npm run test
 
 
-(Jest + React Testing Library)
+Uses Jest + React Testing Library
 
-Backend
-
+⚙️ Backend Tests
 go test ./...
 
 
-(Go testing suite)
+Uses Go’s built-in testing suite
 
 📦 Deployment
 Component	Platform	Notes
-Frontend	Vercel	Auto-deploy from main
+Frontend	Vercel	Auto-deployed from main branch
 Backend	Render / Fly.io	Dockerized Go API
-Database	cPanel (MySQL)	Managed dataset
+Database	cPanel (MySQL)	Managed static dataset
 CI/CD	GitHub Actions	Test → Build → Deploy pipeline
 🌱 Future Growth
 
 Real-time MLS API integration
 
-Property alerts (email/SMS)
+Property alerts via email or SMS
 
-User analytics dashboard
+User analytics dashboard with custom insights
 
-AI chatbot search assistant
+AI chatbot assistant for conversational property search
 
-3D virtual tours (Three.js / Pannellum)
+3D virtual tours using Three.js or Pannellum
 
 🧠 Learning Outcomes
 
-Through Homelytics I gained experience in:
+Through Homelytics, I gained experience in:
 
 Designing a scalable Next.js + Go architecture.
 
@@ -228,7 +227,7 @@ Building and optimizing RESTful APIs with SQL backends.
 
 Integrating AI recommendation logic and data visualization.
 
-Implementing CI/CD pipelines and secure env configs.
+Implementing CI/CD pipelines and secure environment configs.
 
 Delivering a product-grade UI/UX for real-estate applications.
 
