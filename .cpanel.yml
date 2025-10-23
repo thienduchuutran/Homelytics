@@ -1,33 +1,25 @@
 ---
 deployment:
   tasks:
-    # Path where your live site should be served from
+    # 📁 Set your public root folder (where the site is visible)
     - export DEPLOYPATH=/home/boxgra6/titus-duc.calisearch.org
 
-    - /bin/echo "🔄 Starting Homelytics deployment..."
+    - /bin/echo "🚀 Starting Homelytics static deployment..."
 
-    # 1️⃣  Frontend build (Next.js)
+    # 1️⃣ Frontend: build + export static site
     - cd /home/boxgra6/titus-duc.calisearch.org/app/frontend
-    - /bin/echo "📦 Installing frontend dependencies..."
+    - /bin/echo "📦 Installing dependencies..."
     - /bin/npm install
-    - /bin/echo "🏗️  Building Next.js project..."
+    - /bin/echo "🏗️ Building and exporting static site..."
     - /bin/npm run build
+    - /bin/npm run export
 
-    # (If you use `next export`, replace the copy command below with: cp -R out/* $DEPLOYPATH)
-    - /bin/echo "🚚 Copying frontend build to deployment path..."
-    - /bin/cp -R .next/static $DEPLOYPATH/.next/static
-    - /bin/cp -R public/* $DEPLOYPATH/
-    - /bin/cp package.json $DEPLOYPATH/
+    # 2️⃣ Clear previous files (optional but cleaner)
+    - /bin/echo "🧹 Cleaning old files from deployment path..."
+    - /bin/find $DEPLOYPATH -mindepth 1 -maxdepth 1 ! -name '.well-known' ! -name 'cgi-bin' -exec rm -rf {} \;
 
-    # 2️⃣  Backend build (Go API)
-    - cd /home/boxgra6/titus-duc.calisearch.org/app/backend
-    - /bin/echo "⚙️  Building Go backend..."
-    - /usr/bin/go build -o homelytics-api
-    - /bin/mv homelytics-api $DEPLOYPATH/
+    # 3️⃣ Copy new static build to live site root
+    - /bin/echo "🚚 Copying new build to $DEPLOYPATH..."
+    - /bin/cp -R out/* $DEPLOYPATH/
 
-    # 3️⃣  Final cleanup and permissions
-    - /bin/echo "🧹 Cleaning temporary files..."
-    - /bin/find $DEPLOYPATH -type f -name "*.log" -delete || true
-    - /bin/chmod -R 755 $DEPLOYPATH
-
-    - /bin/echo "✅ Homelytics deployment completed successfully!"
+    - /bin/echo "✅ Homelytics static deployment completed successfully!"
