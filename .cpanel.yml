@@ -3,21 +3,12 @@ deployment:
   tasks:
     - export DEPLOYPATH=/home/boxgra6/titus-duc.calisearch.org
 
-    - /bin/echo "🚀 Starting Homelytics static export deployment..."
+    - /bin/echo "🚀 Deploying Homelytics prebuilt static site..."
 
-    # 1️⃣ Build the static site
-    - cd /home/boxgra6/titus-duc.calisearch.org/app/frontend
-    - /bin/echo "📦 Installing dependencies..."
-    - /bin/npm install
-    - /bin/echo "🏗️ Building static export..."
-    - /bin/npm run build
-
-    # 2️⃣ Clean old files from root (optional but tidy)
-    - /bin/echo "🧹 Cleaning old files..."
+    # Clean the public root (keep SSL + cgi-bin)
     - /bin/find $DEPLOYPATH -mindepth 1 -maxdepth 1 ! -name '.well-known' ! -name 'cgi-bin' -exec rm -rf {} \;
 
-    # 3️⃣ Copy build output to live root
-    - /bin/echo "🚚 Copying new build to $DEPLOYPATH..."
-    - /bin/cp -R out/* $DEPLOYPATH/
+    # Copy the locally-built site to public root
+    - /bin/cp -R /home/boxgra6/titus-duc.calisearch.org/app/frontend/out/* $DEPLOYPATH/
 
-    - /bin/echo "✅ Homelytics static export deployed successfully!"
+    - /bin/echo "✅ Static site deployed successfully!"
