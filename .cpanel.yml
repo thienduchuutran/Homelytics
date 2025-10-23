@@ -1,7 +1,7 @@
 ---
 deployment:
   tasks:
-    - export DEPLOYPATH=/home/boxgra6/titus-duc.calisearch.org/app
+    - export DEPLOYPATH=/home/boxgra6/titus-duc.calisearch.org
     - /bin/echo "Starting deployment to $DEPLOYPATH"
     - /bin/cp -R * $DEPLOYPATH
     - /bin/echo "Deployment completed successfully."
