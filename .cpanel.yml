@@ -2,13 +2,68 @@
 deployment:
   tasks:
     - export DEPLOYPATH=/home/boxgra6/titus-duc.calisearch.org
+    - export REPOPATH=/home/boxgra6/repositories/Homelytics
 
-    - /bin/echo "🚀 Deploying Homelytics prebuilt static site..."
+    - /bin/echo "🚀 Starting Homelytics deployment..."
+
+    # Navigate to frontend directory
+    - cd $REPOPATH/frontend
+
+    # Install dependencies
+    - /bin/echo "📦 Installing dependencies..."
+    - /usr/bin/npm install --production=false
+
+    # Build the Next.js static site
+    - /bin/echo "🔨 Building Next.js static site..."
+    - /usr/bin/npm run build
 
     # Clean the public root (keep SSL + cgi-bin)
+    - /bin/echo "🧹 Cleaning deployment directory..."
     - /bin/find $DEPLOYPATH -mindepth 1 -maxdepth 1 ! -name '.well-known' ! -name 'cgi-bin' -exec rm -rf {} \;
 
-    # Copy the locally-built site to public root
-    - /bin/cp -R /home/boxgra6/titus-duc.calisearch.org/app/frontend/out/* $DEPLOYPATH/
+    # Copy the built site to public root
+    - /bin/echo "📂 Copying files to public directory..."
+    - /bin/cp -R $REPOPATH/frontend/out/* $DEPLOYPATH/
 
-    - /bin/echo "✅ Static site deployed successfully!"
+    # Create .htaccess for client-side routing
+    - /bin/echo "⚙️ Configuring .htaccess..."
+    - /bin/cat > $DEPLOYPATH/.htaccess << 'EOF'
+      # Enable directory browsing off
+      Options -Indexes
+
+      # Handle client-side routing
+      RewriteEngine On
+      RewriteBase /
+
+      # If the requested resource exists as a file or directory, serve it
+      RewriteCond %{REQUEST_FILENAME} !-f
+      RewriteCond %{REQUEST_FILENAME} !-d
+
+      # Otherwise, serve index.html
+      RewriteRule ^ index.html [L]
+
+      # MIME Types
+      AddType text/html .html
+      AddType application/javascript .js
+      AddType text/css .css
+
+      # Enable GZIP compression
+      <IfModule mod_deflate.c>
+        AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript application/json
+      </IfModule>
+
+      # Browser caching
+      <IfModule mod_expires.c>
+        ExpiresActive On
+        ExpiresByType image/jpg "access plus 1 year"
+        ExpiresByType image/jpeg "access plus 1 year"
+        ExpiresByType image/gif "access plus 1 year"
+        ExpiresByType image/png "access plus 1 year"
+        ExpiresByType image/svg+xml "access plus 1 year"
+        ExpiresByType text/css "access plus 1 month"
+        ExpiresByType application/javascript "access plus 1 month"
+        ExpiresByType text/html "access plus 1 hour"
+      </IfModule>
+      EOF
+
+    - /bin/echo "✅ Homelytics deployed successfully to $DEPLOYPATH!"
