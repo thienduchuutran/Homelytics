@@ -1,14 +1,17 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { FilterOptions } from '@/types/house';
-import { mockHouses } from '@/data/mockHouses';
+import { useState, useMemo, useEffect } from 'react';
+import { House, FilterOptions } from '@/types/house';
 import HouseCard from '@/components/HouseCard';
 import SearchBar from '@/components/SearchBar';
 import FilterPanel from '@/components/FilterPanel';
 
 export default function HousesPage() {
+  const [houses, setHouses] = useState<House[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<FilterOptions>({
     minPrice: 0,
@@ -19,48 +22,181 @@ export default function HousesPage() {
     status: 'all',
   });
 
-  // Filter and search logic
-  const filteredHouses = useMemo(() => {
-    return mockHouses.filter((house) => {
-      // Search filter
-      const searchLower = searchTerm.toLowerCase();
-      const matchesSearch =
-        !searchTerm ||
-        house.title.toLowerCase().includes(searchLower) ||
-        house.address.toLowerCase().includes(searchLower) ||
-        house.city.toLowerCase().includes(searchLower) ||
-        house.state.toLowerCase().includes(searchLower) ||
-        house.description.toLowerCase().includes(searchLower);
+  // Debounce search term (500ms delay)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500);
 
-      // Price filter
-      const matchesPrice = house.price >= filters.minPrice && house.price <= filters.maxPrice;
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
-      // Bedrooms filter
-      const matchesBedrooms =
-        filters.bedrooms === null || house.bedrooms >= filters.bedrooms;
+  // Fetch houses from API
+  useEffect(() => {
+    const fetchHouses = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Build query parameters
+        const params = new URLSearchParams();
+        if (filters.minPrice > 0) params.append('minPrice', filters.minPrice.toString());
+        if (filters.maxPrice < 10000000) params.append('maxPrice', filters.maxPrice.toString());
+        if (filters.bedrooms !== null) params.append('bedrooms', filters.bedrooms.toString());
+        if (filters.bathrooms !== null) params.append('bathrooms', filters.bathrooms.toString());
+        if (filters.propertyType !== 'all') params.append('propertyType', filters.propertyType);
+        if (filters.status !== 'all') params.append('status', filters.status);
+        if (debouncedSearchTerm.trim()) params.append('search', debouncedSearchTerm.trim());
 
-      // Bathrooms filter
-      const matchesBathrooms =
-        filters.bathrooms === null || house.bathrooms >= filters.bathrooms;
+        // Use relative path - works in both development (if PHP server running) and production
+        // In production (static export), this resolves to: https://titus-duc.calisearch.org/api/get_properties.php
+        // In local dev with PHP server, this resolves to: http://localhost:PORT/api/get_properties.php
+        const apiBase = 'https://titus-duc.calisearch.org/api/get_properties.php';
+        const apiUrl = `${apiBase}${params.toString() ? '?' + params.toString() : ''}`;
+        
+        let response: Response;
+        try {
+          console.log('Attempting to fetch from:', apiUrl);
+          response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+            },
+            // Add mode to handle CORS
+            mode: 'cors',
+            credentials: 'omit',
+          });
+        } catch (fetchError) {
+          // Network error (CORS, connection refused, etc.)
+          const errorMessage = fetchError instanceof Error ? fetchError.message : 'Unknown error';
+          const errorName = fetchError instanceof Error ? fetchError.name : 'Unknown';
+          
+          console.error('Fetch error:', {
+            error: fetchError,
+            message: errorMessage,
+            name: errorName,
+            apiUrl: apiUrl,
+          });
+          
+          // Provide more specific error messages
+          if (errorName === 'TypeError' && errorMessage.includes('Failed to fetch')) {
+            throw new Error(
+              `Network error: Unable to reach API endpoint.\n\n` +
+              `URL: ${apiUrl}\n\n` +
+              `Possible causes:\n` +
+              `1. CORS issue - Check that the server allows requests from ${typeof window !== 'undefined' ? window.location.origin : 'your domain'}\n` +
+              `2. API endpoint not accessible - Verify the URL is correct\n` +
+              `3. Server is down or unreachable\n\n` +
+              `To test: Open ${apiUrl} directly in your browser.`
+            );
+          }
+          
+          throw new Error(
+            `Unable to connect to API endpoint. ` +
+            `Error: ${errorMessage} (${errorName}). ` +
+            `URL: ${apiUrl}`
+          );
+        }
+        
+        if (!response.ok) {
+          // Log the full URL for debugging
+          console.error(`API request failed: ${response.status} ${response.statusText}`, {
+            url: apiUrl,
+            status: response.status,
+            statusText: response.statusText,
+          });
+          
+          if (response.status === 404) {
+            throw new Error(
+              `API endpoint not found (404). ` +
+              `The file /api/get_properties.php does not exist on the server. ` +
+              `Please upload the PHP file to the /api/ folder in your web root. ` +
+              `See DEPLOYMENT_FIX.md for detailed instructions.`
+            );
+          }
+          
+          // Try to get error message from response body (for non-404 errors)
+          let errorDetail = '';
+          try {
+            const errorData = await response.clone().text();
+            if (errorData) {
+              // Check if response is HTML (PHP error) instead of JSON
+              if (errorData.trim().startsWith('<')) {
+                errorDetail = 'Server returned HTML instead of JSON. This usually means a PHP error occurred. Check server error logs.';
+                console.error('HTML Response (likely PHP error):', errorData.substring(0, 500));
+              } else {
+                try {
+                  const parsed = JSON.parse(errorData);
+                  errorDetail = parsed.error || errorData;
+                } catch {
+                  errorDetail = errorData.substring(0, 200); // Limit length
+                }
+              }
+            }
+          } catch {
+            // Ignore parse errors
+          }
+          
+          throw new Error(
+            `Failed to fetch properties: ${response.status} ${response.statusText}` +
+            (errorDetail ? ` - ${errorDetail}` : '')
+          );
+        }
+        
+        // Try to parse JSON response
+        let data;
+        try {
+          const text = await response.text();
+          
+          // Check if response is HTML (PHP error) instead of JSON
+          if (text.trim().startsWith('<')) {
+            // Extract error message from HTML if possible
+            const errorMatch = text.match(/<b>(.*?)<\/b>/i) || text.match(/Fatal error: (.*?)(?:\n|<)/i) || text.match(/Parse error: (.*?)(?:\n|<)/i);
+            const errorMsg = errorMatch ? errorMatch[1] : 'PHP error (see full response in console)';
+            console.error('Server returned HTML instead of JSON. Full response:', text);
+            throw new Error(
+              `PHP Error: ${errorMsg}. ` +
+              `Full error details are in the browser console. ` +
+              `Common causes: database connection failure, missing PHP extension, or syntax error.`
+            );
+          }
+          
+          data = JSON.parse(text);
+        } catch (parseError) {
+          console.error('JSON parse error:', parseError);
+          throw new Error(
+            'Failed to parse server response. The server may have returned an error. ' +
+            'Check browser console for details.'
+          );
+        }
+        
+        // Handle error response from PHP
+        if (data && typeof data === 'object' && 'error' in data) {
+          throw new Error(data.error);
+        }
+        
+        // Ensure data is an array
+        if (!Array.isArray(data)) {
+          console.warn('API returned non-array data:', data);
+          setHouses([]);
+          return;
+        }
+        
+        setHouses(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load properties');
+        console.error('Error fetching houses:', err);
+        setHouses([]); // Clear houses on error
+      } finally {
+        setLoading(false);
+      }
+    };
 
-      // Property type filter
-      const matchesPropertyType =
-        filters.propertyType === 'all' || house.propertyType === filters.propertyType;
+    fetchHouses();
+  }, [filters, debouncedSearchTerm]);
 
-      // Status filter
-      const matchesStatus =
-        filters.status === 'all' || house.status === filters.status;
-
-      return (
-        matchesSearch &&
-        matchesPrice &&
-        matchesBedrooms &&
-        matchesBathrooms &&
-        matchesPropertyType &&
-        matchesStatus
-      );
-    });
-  }, [searchTerm, filters]);
+  // Use houses directly from API (API handles all filtering)
+  const filteredHouses = houses;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -112,7 +248,36 @@ export default function HousesPage() {
 
           {/* House Grid */}
           <main className="flex-1">
-            {filteredHouses.length > 0 ? (
+            {loading ? (
+              <div className="text-center py-16">
+                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <p className="mt-4 text-gray-600">Loading properties...</p>
+              </div>
+            ) : error ? (
+              <div className="text-center py-16">
+                <svg
+                  className="mx-auto h-24 w-24 text-red-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <h3 className="mt-4 text-lg font-medium text-gray-900">Error loading properties</h3>
+                <p className="mt-2 text-gray-600">{error}</p>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : filteredHouses.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {filteredHouses.map((house) => (
                   <HouseCard key={house.id} house={house} />

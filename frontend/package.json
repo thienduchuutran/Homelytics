@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "dev:php": "php -S localhost:8000 -t .",
     "build": "next build --turbopack",
     "start": "next start",
     "export": "next export",

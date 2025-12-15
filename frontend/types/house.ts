@@ -13,7 +13,7 @@ export interface House {
   status: 'for-sale' | 'for-rent';
   description: string;
   imageUrl: string;
-  yearBuilt: number;
+  yearBuilt: number | null;
   parking?: number;
   amenities: string[];
   listingDate: string;
