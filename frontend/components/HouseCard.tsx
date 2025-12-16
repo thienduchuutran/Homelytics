@@ -1,5 +1,6 @@
 import { House } from '@/types/house';
 import Image from 'next/image';
+import Link from 'next/link';
 
 interface HouseCardProps {
   house: House;
@@ -91,9 +92,12 @@ export default function HouseCard({ house }: HouseCardProps) {
           )}
         </div>
 
-        <button className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors">
+        <Link
+          href={`/properties?id=${house.id}`}
+          className="block w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors text-center"
+        >
           View Details
-        </button>
+        </Link>
       </div>
     </div>
   );
