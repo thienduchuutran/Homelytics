@@ -47,7 +47,7 @@ if (is_file($envPath) && is_readable($envPath)) {
     if ($lines !== false) {
         foreach ($lines as $line) {
             $line = trim($line);
-            if ($line === '' || str_starts_with($line, '#')) continue;
+            if ($line === '' || substr($line, 0, 1) === '#') continue;
             $pos = strpos($line, '=');
             if ($pos === false) continue;
             $key = trim(substr($line, 0, $pos));
@@ -186,6 +186,7 @@ LIMIT 500";
 
 try {
     $stmt = $pdo->prepare($sql);
+    // Execute with filter parameters only (LIMIT/OFFSET are already in SQL)
     $stmt->execute($params);
     $rows = $stmt->fetchAll();
 } catch (Throwable $e) {

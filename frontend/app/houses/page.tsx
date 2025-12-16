@@ -51,8 +51,7 @@ export default function HousesPage() {
         // Use relative path - works in both development (if PHP server running) and production
         // In production (static export), this resolves to: https://titus-duc.calisearch.org/api/get_properties.php
         // In local dev with PHP server, this resolves to: http://localhost:PORT/api/get_properties.php
-        const apiBase = 'https://titus-duc.calisearch.org/api/get_properties.php';
-        const apiUrl = `${apiBase}${params.toString() ? '?' + params.toString() : ''}`;
+        const apiUrl = `https://titus-duc.calisearch.org/api/get_properties.php${params.toString() ? '?' + params.toString() : ''}`;
         
         let response: Response;
         try {
