@@ -1,6 +1,9 @@
+'use client';
+
 import { House } from '@/types/house';
 import Image from 'next/image';
 import Link from 'next/link';
+import FavoriteButton from './FavoriteButton';
 
 interface HouseCardProps {
   house: House;
@@ -42,8 +45,26 @@ export default function HouseCard({ house }: HouseCardProps) {
           className="object-cover"
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
         />
-        <div className="absolute top-4 right-4 bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
-          {house.status === 'for-sale' ? 'For Sale' : 'For Rent'}
+        <div className="absolute top-4 right-4 flex items-center gap-2">
+          <FavoriteButton
+            id={house.id}
+            snapshot={{
+              address: house.address,
+              city: house.city,
+              state: house.state,
+              zip: house.zipCode,
+              price: house.price,
+              beds: house.bedrooms,
+              baths: house.bathrooms,
+              sqft: house.squareFeet,
+              photo: house.imageUrl,
+            }}
+            className="bg-white/90 hover:bg-white backdrop-blur-sm"
+            size="md"
+          />
+          <div className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
+            {house.status === 'for-sale' ? 'For Sale' : 'For Rent'}
+          </div>
         </div>
       </div>
 

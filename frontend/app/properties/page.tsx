@@ -4,6 +4,8 @@ import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
+import FavoriteButton from '@/components/FavoriteButton';
+import FavoritesLink from '@/components/FavoritesLink';
 
 interface PropertyDetail {
   id: string;
@@ -254,15 +256,18 @@ function PropertyDetailContent() {
       {/* Header */}
       <header className="bg-white shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <Link
-            href="/houses"
-            className="inline-flex items-center text-blue-600 hover:text-blue-700 font-medium"
-          >
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Back to Listings
-          </Link>
+          <div className="flex items-center justify-between">
+            <Link
+              href="/houses"
+              className="inline-flex items-center text-blue-600 hover:text-blue-700 font-medium"
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Back to Listings
+            </Link>
+            <FavoritesLink />
+          </div>
         </div>
       </header>
 
@@ -336,14 +341,34 @@ function PropertyDetailContent() {
             {/* Title and Price */}
             <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
               <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h1 className="text-4xl font-bold text-gray-900 mb-2">{property.title}</h1>
-                  <p className="text-xl text-gray-600 mb-1">{property.address}</p>
-                  <p className="text-lg text-gray-500">
-                    {property.city}, {property.state} {property.zipCode}
-                  </p>
+                <div className="flex-1">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1">
+                      <h1 className="text-4xl font-bold text-gray-900 mb-2">{property.title}</h1>
+                      <p className="text-xl text-gray-600 mb-1">{property.address}</p>
+                      <p className="text-lg text-gray-500">
+                        {property.city}, {property.state} {property.zipCode}
+                      </p>
+                    </div>
+                    <FavoriteButton
+                      id={property.id}
+                      snapshot={{
+                        address: property.address,
+                        city: property.city,
+                        state: property.state,
+                        zip: property.zipCode,
+                        price: property.price,
+                        beds: property.bedrooms,
+                        baths: property.bathrooms,
+                        sqft: property.squareFeet,
+                        photo: property.imageUrl,
+                      }}
+                      className="flex-shrink-0"
+                      size="lg"
+                    />
+                  </div>
                 </div>
-                <div className="text-right">
+                <div className="text-right ml-4">
                   <p className="text-4xl font-bold text-blue-600 mb-2">{formatPrice(property.price)}</p>
                   <span className={`inline-block px-4 py-1 rounded-full text-sm font-semibold ${
                     property.status === 'for-sale' 

@@ -5,6 +5,7 @@ import { House, FilterOptions } from '@/types/house';
 import HouseCard from '@/components/HouseCard';
 import SearchBar from '@/components/SearchBar';
 import FilterPanel from '@/components/FilterPanel';
+import FavoritesLink from '@/components/FavoritesLink';
 
 export default function HousesPage() {
   const [houses, setHouses] = useState<House[]>([]);
@@ -230,10 +231,15 @@ export default function HousesPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm">
+      <header className="bg-white shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <h1 className="text-3xl font-bold text-gray-900">Find Your Dream Home</h1>
-          <p className="mt-2 text-gray-600">Browse through our collection of properties</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Find Your Dream Home</h1>
+              <p className="mt-2 text-gray-600">Browse through our collection of properties</p>
+            </div>
+            <FavoritesLink />
+          </div>
         </div>
       </header>
 
