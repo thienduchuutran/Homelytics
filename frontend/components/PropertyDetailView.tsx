@@ -213,11 +213,72 @@ export default function PropertyDetailView({ propertyId, showHeader = true, show
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-          <p className="text-gray-600">Loading property details...</p>
-        </div>
+      <div className="min-h-screen bg-gray-50">
+        {showHeader && (
+          <header className="bg-white shadow-sm sticky top-0 z-50">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+              <div className="skeleton h-6 w-32 rounded"></div>
+            </div>
+          </header>
+        )}
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Image Skeleton */}
+          <div className="mb-8">
+            <div className="skeleton h-[500px] w-full rounded-2xl mb-4"></div>
+            <div className="grid grid-cols-6 gap-2">
+              {[...Array(6)].map((_, idx) => (
+                <div key={idx} className="skeleton h-20 rounded-lg"></div>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Left Column Skeleton */}
+            <div className="lg:col-span-2 space-y-6">
+              <div className="bg-white rounded-2xl shadow-sm p-6">
+                <div className="skeleton h-10 w-3/4 mb-4 rounded"></div>
+                <div className="skeleton h-6 w-1/2 mb-2 rounded"></div>
+                <div className="skeleton h-6 w-1/3 mb-6 rounded"></div>
+                <div className="grid grid-cols-4 gap-4 pt-6 border-t border-gray-200">
+                  {[...Array(4)].map((_, idx) => (
+                    <div key={idx} className="text-center">
+                      <div className="skeleton h-8 w-12 mx-auto mb-2 rounded"></div>
+                      <div className="skeleton h-4 w-16 mx-auto rounded"></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-white rounded-2xl shadow-sm p-6">
+                <div className="skeleton h-8 w-32 mb-4 rounded"></div>
+                <div className="skeleton h-4 w-full mb-2 rounded"></div>
+                <div className="skeleton h-4 w-full mb-2 rounded"></div>
+                <div className="skeleton h-4 w-3/4 rounded"></div>
+              </div>
+              <div className="bg-white rounded-2xl shadow-sm p-6">
+                <div className="skeleton h-8 w-40 mb-6 rounded"></div>
+                <div className="grid grid-cols-2 gap-6">
+                  {[...Array(6)].map((_, idx) => (
+                    <div key={idx}>
+                      <div className="skeleton h-4 w-24 mb-2 rounded"></div>
+                      <div className="skeleton h-6 w-32 rounded"></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column Skeleton */}
+            <div className="lg:col-span-1">
+              <div className="bg-white rounded-2xl shadow-sm p-6 sticky top-24">
+                <div className="skeleton h-8 w-48 mb-4 rounded"></div>
+                <div className="skeleton h-6 w-32 mb-2 rounded"></div>
+                <div className="skeleton h-6 w-40 mb-6 rounded"></div>
+                <div className="skeleton h-12 w-full mb-3 rounded-lg"></div>
+                <div className="skeleton h-12 w-full rounded-lg"></div>
+              </div>
+            </div>
+          </div>
+        </main>
       </div>
     );
   }
