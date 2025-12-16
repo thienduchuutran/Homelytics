@@ -21,6 +21,7 @@ export default function HousesPage() {
     propertyType: 'all',
     status: 'all',
   });
+  const [sortBy, setSortBy] = useState<string>('newest');
 
   // Debounce search term (500ms delay)
   useEffect(() => {
@@ -47,6 +48,8 @@ export default function HousesPage() {
         if (filters.propertyType !== 'all') params.append('propertyType', filters.propertyType);
         if (filters.status !== 'all') params.append('status', filters.status);
         if (debouncedSearchTerm.trim()) params.append('search', debouncedSearchTerm.trim());
+        // Add sorting parameters
+        if (sortBy) params.append('sortBy', sortBy);
 
         // Use relative path - works in both development (if PHP server running) and production
         // In production (static export), this resolves to: https://titus-duc.calisearch.org/api/get_properties.php
@@ -161,6 +164,24 @@ export default function HousesPage() {
           }
           
           data = JSON.parse(text);
+          // ALWAYS log what we got - this will show in console
+          console.log('=== API RESPONSE DEBUG ===');
+          console.log('Full response:', data);
+          console.log('Is array?', Array.isArray(data));
+          console.log('Has _debug?', data && typeof data === 'object' && '_debug' in data);
+          console.log('Has data property?', data && typeof data === 'object' && 'data' in data);
+          if (data && typeof data === 'object' && '_debug' in data) {
+            console.log('DEBUG OBJECT:', data._debug);
+          }
+          if (Array.isArray(data) && data.length > 0) {
+            console.log('First item price:', data[0].price);
+            console.log('Last item price:', data[data.length - 1].price);
+          }
+          if (data && typeof data === 'object' && 'data' in data && Array.isArray(data.data)) {
+            console.log('First item price (from data.data):', data.data[0]?.price);
+            console.log('Last item price (from data.data):', data.data[data.data.length - 1]?.price);
+          }
+          console.log('=== END DEBUG ===');
         } catch (parseError) {
           console.error('JSON parse error:', parseError);
           throw new Error(
@@ -172,6 +193,15 @@ export default function HousesPage() {
         // Handle error response from PHP
         if (data && typeof data === 'object' && 'error' in data) {
           throw new Error(data.error);
+        }
+        
+        // Handle debug response format (temporary - for debugging sorting)
+        if (data && typeof data === 'object' && 'data' in data && '_debug' in data) {
+          console.log('🔍 Debug info from API:', data._debug);
+          console.log('First property price:', data.data[0]?.price);
+          console.log('Last property price:', data.data[data.data.length - 1]?.price);
+          setHouses(data.data);
+          return;
         }
         
         // Ensure data is an array
@@ -192,7 +222,7 @@ export default function HousesPage() {
     };
 
     fetchHouses();
-  }, [filters, debouncedSearchTerm]);
+  }, [filters, debouncedSearchTerm, sortBy]);
 
   // Use houses directly from API (API handles all filtering)
   const filteredHouses = houses;
@@ -212,20 +242,46 @@ export default function HousesPage() {
         {/* Search and Filter Toggle */}
         <div className="flex flex-col sm:flex-row gap-4 mb-8">
           <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="px-6 py-4 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition-colors font-medium text-gray-700 flex items-center justify-center gap-2"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
-              />
-            </svg>
-            Filters
-          </button>
+          <div className="flex gap-4">
+            {/* Sort Dropdown */}
+            <div className="relative">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="px-4 py-4 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition-colors font-medium text-gray-700 appearance-none pr-10 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="price-low">Price: Low to High</option>
+                <option value="price-high">Price: High to Low</option>
+                <option value="bedrooms-high">Bedrooms: Most</option>
+                <option value="bedrooms-low">Bedrooms: Fewest</option>
+                <option value="bathrooms-high">Bathrooms: Most</option>
+                <option value="bathrooms-low">Bathrooms: Fewest</option>
+                <option value="sqft-high">Square Feet: Largest</option>
+                <option value="sqft-low">Square Feet: Smallest</option>
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="px-6 py-4 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition-colors font-medium text-gray-700 flex items-center justify-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+                />
+              </svg>
+              Filters
+            </button>
+          </div>
         </div>
 
         {/* Results Count */}

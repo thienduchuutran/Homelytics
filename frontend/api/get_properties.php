@@ -3,15 +3,19 @@
  * get_properties.php
  * API endpoint to fetch properties from rets_property table
  * Returns JSON array of properties formatted for frontend
+ * VERSION: 2.0 - WITH SORTING AND DEBUG
  */
 
 declare(strict_types=1);
 
-// Disable error display IMMEDIATELY - must be first
-ini_set('display_errors', '0');
-ini_set('display_startup_errors', '0');
+// TEMPORARY: Enable error display to debug
+ini_set('display_errors', '1');
+ini_set('display_startup_errors', '1');
 ini_set('log_errors', '1');
 error_reporting(E_ALL);
+
+// FORCE VERSION CHECK - if you see this in response, new file is loaded
+$FILE_VERSION = '2.0-SORTING-FIXED';
 
 // Set output buffering to catch any errors
 ob_start();
@@ -96,6 +100,14 @@ $propertyType = isset($_GET['propertyType']) && $_GET['propertyType'] !== 'all' 
 $status = isset($_GET['status']) && $_GET['status'] !== 'all' ? trim($_GET['status']) : null;
 $searchTerm = isset($_GET['search']) ? trim($_GET['search']) : '';
 
+// TEST: Uncomment this to verify new file is loaded
+// header('Content-Type: application/json');
+// echo json_encode(['_test' => 'NEW FILE LOADED', 'version' => $FILE_VERSION]);
+// exit;
+
+// ---- Get sorting parameter
+$sortBy = isset($_GET['sortBy']) ? trim($_GET['sortBy']) : 'newest';
+
 // ---- Build WHERE clause
 $where = ['1=1'];
 $params = [];
@@ -157,7 +169,114 @@ if ($searchTerm !== '') {
     $params[':search4'] = $searchPattern;
 }
 
+// When sorting by price, exclude NULL and zero prices for better results
+if ($sortBy === 'price-low' || $sortBy === 'price-high') {
+    $where[] = 'L_SystemPrice IS NOT NULL AND L_SystemPrice > 0';
+}
+
+// When sorting by date, exclude NULL and invalid dates for better results
+if ($sortBy === 'newest' || $sortBy === 'oldest') {
+    $where[] = "ListingContractDate IS NOT NULL AND ListingContractDate != '' AND ListingContractDate != '0000-00-00' AND ListingContractDate != '0000-00-00 00:00:00'";
+}
+
 $whereClause = implode(' AND ', $where);
+
+// ---- Build ORDER BY clause based on sortBy parameter
+// Map sortBy to column and direction
+$sortColumn = 'ListingContractDate';
+$sortDirection = 'DESC';
+$secondarySort = 'L_ListingID DESC';
+
+switch ($sortBy) {
+    case 'newest':
+        $sortColumn = 'ListingContractDate';
+        $sortDirection = 'DESC';
+        $secondarySort = 'L_ListingID DESC';
+        break;
+    case 'oldest':
+        $sortColumn = 'ListingContractDate';
+        $sortDirection = 'ASC';
+        $secondarySort = 'L_ListingID ASC';
+        break;
+    case 'price-low':
+        $sortColumn = 'L_SystemPrice';
+        $sortDirection = 'ASC';
+        $secondarySort = 'L_ListingID ASC';
+        break;
+    case 'price-high':
+        $sortColumn = 'L_SystemPrice';
+        $sortDirection = 'DESC';
+        $secondarySort = 'L_ListingID DESC';
+        break;
+    case 'bedrooms-low':
+        $sortColumn = 'L_Keyword2';
+        $sortDirection = 'ASC';
+        $secondarySort = 'L_ListingID ASC';
+        break;
+    case 'bedrooms-high':
+        $sortColumn = 'L_Keyword2';
+        $sortDirection = 'DESC';
+        $secondarySort = 'L_ListingID DESC';
+        break;
+    case 'bathrooms-low':
+        $sortColumn = 'LM_Dec_3';
+        $sortDirection = 'ASC';
+        $secondarySort = 'L_ListingID ASC';
+        break;
+    case 'bathrooms-high':
+        $sortColumn = 'LM_Dec_3';
+        $sortDirection = 'DESC';
+        $secondarySort = 'L_ListingID DESC';
+        break;
+    case 'sqft-low':
+        $sortColumn = 'LM_Int2_3';
+        $sortDirection = 'ASC';
+        $secondarySort = 'L_ListingID ASC';
+        break;
+    case 'sqft-high':
+        $sortColumn = 'LM_Int2_3';
+        $sortDirection = 'DESC';
+        $secondarySort = 'L_ListingID DESC';
+        break;
+    default:
+        $sortColumn = 'ListingContractDate';
+        $sortDirection = 'DESC';
+        $secondarySort = 'L_ListingID DESC';
+}
+
+// Build ORDER BY with NULL handling - put NULLs last
+// For date columns, use different NULL handling
+if ($sortColumn === 'ListingContractDate') {
+    // Date column - ensure proper date comparison
+    // Put NULL/empty/invalid dates at the end regardless of sort direction
+    // MySQL DATE/DATETIME comparison works correctly, but handle edge cases
+    $orderByClause = "CASE 
+        WHEN $sortColumn IS NULL OR $sortColumn = '' OR $sortColumn = '0000-00-00' OR $sortColumn = '0000-00-00 00:00:00' THEN 1 
+        ELSE 0 
+    END, 
+    $sortColumn $sortDirection, 
+    $secondarySort";
+} else {
+    // Numeric columns - use IS NULL check, handle empty strings and zeros
+    if ($sortColumn === 'L_SystemPrice') {
+        // For price sorting, ensure proper numeric comparison using DECIMAL
+        // Put NULL/zero prices at the end (but WHERE clause already filters these for price sorts)
+        $orderByClause = "CASE 
+            WHEN $sortColumn IS NULL OR $sortColumn = 0 OR $sortColumn = '' THEN 1 
+            ELSE 0 
+        END, 
+        CAST(COALESCE(NULLIF($sortColumn, ''), 0) AS DECIMAL(15,2)) $sortDirection, 
+        $secondarySort";
+    } else {
+        // Other numeric columns - put NULLs/zeros at the end
+        $orderByClause = "CASE 
+            WHEN $sortColumn IS NULL OR $sortColumn = 0 OR $sortColumn = '' THEN 1 
+            ELSE 0 
+        END, 
+        $sortColumn $sortDirection, 
+        $secondarySort";
+    }
+}
 
 // ---- Fetch properties
 $sql = "SELECT 
@@ -181,16 +300,19 @@ $sql = "SELECT
     L_Type_ as propertySubType
 FROM rets_property 
 WHERE $whereClause
-ORDER BY ListingContractDate DESC, L_ListingID DESC
+ORDER BY " . $orderByClause . "
 LIMIT 500";
 
 try {
     $stmt = $pdo->prepare($sql);
-    // Execute with filter parameters only (LIMIT/OFFSET are already in SQL)
     $stmt->execute($params);
     $rows = $stmt->fetchAll();
 } catch (Throwable $e) {
-    jsonError('Query failed: ' . $e->getMessage(), 500);
+    // Log the error with full details
+    error_log("SQL Error for sortBy=$sortBy: " . $e->getMessage());
+    error_log("SQL: " . $sql);
+    error_log("ORDER BY clause: " . $orderByClause);
+    jsonError('Query failed: ' . $e->getMessage() . ' | SortBy: ' . $sortBy . ' | ORDER BY: ' . $orderByClause, 500);
 }
 
 // ---- Map database fields to House interface
@@ -283,12 +405,38 @@ try {
     jsonError('Error mapping properties: ' . $e->getMessage(), 500);
 }
 
-// ---- Return JSON
+// ---- Return JSON with debug info (temporary)
+// FORCE DEBUG FORMAT - this proves the new file is running
 try {
     // Clear any output buffer
     ob_clean();
-    echo json_encode($houses, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-    ob_end_flush();
+    
+    // ALWAYS return debug format - FORCE IT
+    // If you see this structure, new file is definitely loaded
+    $response = [
+        '_NEW_FILE_LOADED' => true,
+        '_version' => $FILE_VERSION,
+        '_timestamp' => date('Y-m-d H:i:s'),
+        '_debug' => [
+            'sortBy' => $sortBy,
+            'sortColumn' => isset($sortColumn) ? $sortColumn : 'ERROR: NOT SET',
+            'sortDirection' => isset($sortDirection) ? $sortDirection : 'ERROR: NOT SET',
+            'orderByClause' => isset($orderByClause) ? $orderByClause : 'ERROR: NOT SET',
+            'sqlPreview' => isset($sql) ? substr($sql, 0, 400) : 'ERROR: SQL NOT SET',
+            'rowCount' => isset($rows) ? count($rows) : 0,
+            'houseCount' => isset($houses) ? count($houses) : 0,
+            'firstPrice' => !empty($rows[0]['L_SystemPrice']) ? (float)$rows[0]['L_SystemPrice'] : null,
+            'lastPrice' => !empty($rows[count($rows)-1]['L_SystemPrice']) ? (float)$rows[count($rows)-1]['L_SystemPrice'] : null,
+        ],
+        'data' => isset($houses) ? $houses : [],
+    ];
+    
+    // Clear buffer and force JSON
+    while (ob_get_level()) ob_end_clean();
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-cache, must-revalidate');
+    echo json_encode($response, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    exit(0);
 } catch (Throwable $e) {
     ob_clean();
     jsonError('Error encoding JSON: ' . $e->getMessage(), 500);
