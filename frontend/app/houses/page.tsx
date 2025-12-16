@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { House, FilterOptions } from '@/types/house';
 import HouseCard from '@/components/HouseCard';
 import SearchBar from '@/components/SearchBar';
 import FilterPanel from '@/components/FilterPanel';
 import FavoritesLink from '@/components/FavoritesLink';
+import PropertyQuickViewDrawer from '@/components/PropertyQuickViewDrawer';
 
 export default function HousesPage() {
   const [houses, setHouses] = useState<House[]>([]);
@@ -23,6 +24,74 @@ export default function HousesPage() {
     status: 'all',
   });
   const [sortBy, setSortBy] = useState<string>('newest');
+  const [quickViewId, setQuickViewId] = useState<string | null>(null);
+  const scrollRestoredRef = useRef(false);
+
+  const SCROLL_STORAGE_KEY = 'pnc:scroll:home:v1';
+
+  // Use houses directly from API (API handles all filtering)
+  const filteredHouses = houses;
+
+  // Restore scroll position AFTER content is loaded and rendered
+  useEffect(() => {
+    // Only restore once, and only after loading is complete and we have content
+    if (scrollRestoredRef.current || loading || filteredHouses.length === 0) return;
+
+    try {
+      const savedScroll = sessionStorage.getItem(SCROLL_STORAGE_KEY);
+      if (savedScroll !== null) {
+        const scrollY = parseInt(savedScroll, 10);
+        if (!isNaN(scrollY) && scrollY > 0) {
+          // Wait for DOM to be fully rendered with all content
+          const restoreScroll = () => {
+            // Use setTimeout to ensure all React updates are flushed
+            setTimeout(() => {
+              window.scrollTo({
+                top: scrollY,
+                behavior: 'auto' as ScrollBehavior
+              });
+              scrollRestoredRef.current = true;
+            }, 0);
+          };
+
+          // Double RAF to ensure layout is complete
+          requestAnimationFrame(() => {
+            requestAnimationFrame(restoreScroll);
+          });
+        } else {
+          scrollRestoredRef.current = true;
+        }
+      } else {
+        scrollRestoredRef.current = true;
+      }
+    } catch (error) {
+      console.error('Error restoring scroll position:', error);
+      scrollRestoredRef.current = true;
+    }
+  }, [loading, filteredHouses.length]); // Restore when loading completes and content is ready
+
+  // Save scroll position with debounce
+  useEffect(() => {
+    let scrollTimeout: NodeJS.Timeout;
+
+    const handleScroll = () => {
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        try {
+          sessionStorage.setItem(SCROLL_STORAGE_KEY, window.scrollY.toString());
+        } catch (error) {
+          console.error('Error saving scroll position:', error);
+        }
+      }, 150); // 150ms debounce
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      clearTimeout(scrollTimeout);
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
 
   // Debounce search term (500ms delay)
   useEffect(() => {
@@ -225,9 +294,6 @@ export default function HousesPage() {
     fetchHouses();
   }, [filters, debouncedSearchTerm, sortBy]);
 
-  // Use houses directly from API (API handles all filtering)
-  const filteredHouses = houses;
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -341,7 +407,11 @@ export default function HousesPage() {
             ) : filteredHouses.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {filteredHouses.map((house) => (
-                  <HouseCard key={house.id} house={house} />
+                  <HouseCard 
+                    key={house.id} 
+                    house={house} 
+                    onQuickView={(id) => setQuickViewId(id)}
+                  />
                 ))}
               </div>
             ) : (
@@ -368,6 +438,13 @@ export default function HousesPage() {
           </main>
         </div>
       </div>
+
+      {/* Quick View Drawer */}
+      <PropertyQuickViewDrawer
+        open={quickViewId !== null}
+        propertyId={quickViewId}
+        onClose={() => setQuickViewId(null)}
+      />
     </div>
   );
 }

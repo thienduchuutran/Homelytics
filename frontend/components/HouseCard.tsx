@@ -7,9 +7,10 @@ import FavoriteButton from './FavoriteButton';
 
 interface HouseCardProps {
   house: House;
+  onQuickView?: (id: string) => void;
 }
 
-export default function HouseCard({ house }: HouseCardProps) {
+export default function HouseCard({ house, onQuickView }: HouseCardProps) {
   const formatPrice = (price: number) => {
     if (house.status === 'for-rent') {
       return `$${price.toLocaleString()}/mo`;
@@ -35,8 +36,17 @@ export default function HouseCard({ house }: HouseCardProps) {
     return displayMap[propertyType] || propertyType;
   };
 
+  const handleCardClick = () => {
+    if (onQuickView) {
+      onQuickView(house.id);
+    }
+  };
+
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300">
+    <div 
+      className={`bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300 ${onQuickView ? 'cursor-pointer' : ''}`}
+      onClick={onQuickView ? handleCardClick : undefined}
+    >
       <div className="relative h-64 w-full">
         <Image
           src={house.imageUrl}
@@ -113,12 +123,22 @@ export default function HouseCard({ house }: HouseCardProps) {
           )}
         </div>
 
-        <Link
-          href={`/properties?id=${house.id}`}
-          className="block w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors text-center"
-        >
-          View Details
-        </Link>
+        <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+          {onQuickView && (
+            <button
+              onClick={() => onQuickView(house.id)}
+              className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors text-center"
+            >
+              Quick View
+            </button>
+          )}
+          <Link
+            href={`/properties?id=${house.id}`}
+            className={`${onQuickView ? 'flex-1' : 'w-full'} bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors text-center`}
+          >
+            View Details
+          </Link>
+        </div>
       </div>
     </div>
   );
