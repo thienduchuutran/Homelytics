@@ -13,6 +13,24 @@ export default function HouseCard({ house }: HouseCardProps) {
     return `$${price.toLocaleString()}`;
   };
 
+  const getPropertyTypeDisplay = (propertyType: string): string => {
+    const displayMap: Record<string, string> = {
+      'Residential': 'Residential',
+      'SingleFamilyResidence': 'Single Family',
+      'Condominium': 'Condominium',
+      'Townhouse': 'Townhouse',
+      'Duplex': 'Duplex',
+      'Triplex': 'Triplex',
+      'Cabin': 'Cabin',
+      'ManufacturedHome': 'Manufactured Home',
+      'ManufacturedOnLand': 'Manufactured On Land',
+      'MobileHome': 'Mobile Home',
+      'MixedUse': 'Mixed Use',
+      'StockCooperative': 'Stock Cooperative',
+    };
+    return displayMap[propertyType] || propertyType;
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300">
       <div className="relative h-64 w-full">
@@ -63,8 +81,8 @@ export default function HouseCard({ house }: HouseCardProps) {
         <p className="text-gray-600 mb-4 line-clamp-2">{house.description}</p>
 
         <div className="flex flex-wrap gap-2 mb-4">
-          <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm capitalize">
-            {house.propertyType}
+          <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
+            {getPropertyTypeDisplay(house.propertyType)}
           </span>
           {house.parking && (
             <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">

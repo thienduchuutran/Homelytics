@@ -123,10 +123,18 @@ export default function FilterPanel({ filters, onFilterChange }: FilterPanelProp
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="all">All Types</option>
-            <option value="house">House</option>
-            <option value="apartment">Apartment</option>
-            <option value="condo">Condo</option>
-            <option value="townhouse">Townhouse</option>
+            <option value="Residential">Residential</option>
+            <option value="SingleFamilyResidence">Single Family Residence</option>
+            <option value="Condominium">Condominium</option>
+            <option value="Townhouse">Townhouse</option>
+            <option value="Duplex">Duplex</option>
+            <option value="Triplex">Triplex</option>
+            <option value="Cabin">Cabin</option>
+            <option value="ManufacturedHome">Manufactured Home</option>
+            <option value="ManufacturedOnLand">Manufactured On Land</option>
+            <option value="MobileHome">Mobile Home</option>
+            <option value="MixedUse">Mixed Use</option>
+            <option value="StockCooperative">Stock Cooperative</option>
           </select>
         </div>
 

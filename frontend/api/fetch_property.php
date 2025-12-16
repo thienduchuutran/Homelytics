@@ -100,8 +100,10 @@ function http_get_json(string $url, string $bearer, int $timeout=30): array {
 
 // ---- URLs ----
 $base = 'https://api-trestle.corelogic.com/trestle/odata/Property';
+// Fetch all property types, not just Residential
+// Filter only by active status to get all property types
 $q_common = '$orderby=ListingContractDate+desc,ListingKey+desc'
-          . '&$filter=PropertyType+eq+\'Residential\'+and+MlsStatus+eq+\'Active\'';
+          . '&$filter=MlsStatus+eq+\'Active\'';
 
 // ---- 1) COUNT ----
 $countUrl = $base . '?' . $q_common . '&$top=1&$count=true';

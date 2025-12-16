@@ -91,6 +91,29 @@ try {
     jsonError('Database connection failed: ' . $e->getMessage(), 500);
 }
 
+// Get distinct property types for debugging (check both L_Class and L_Type_)
+$distinctPropertyTypes = [];
+try {
+    // Get distinct L_Class values (parent category like "Residential")
+    $classStmt = $pdo->query("SELECT DISTINCT L_Class, COUNT(*) as count FROM rets_property WHERE L_Class IS NOT NULL AND L_Class != '' GROUP BY L_Class ORDER BY L_Class");
+    $classRows = $classStmt->fetchAll();
+    $classTypes = array_map(function($row) {
+        return 'L_Class: ' . $row['L_Class'] . ' (' . $row['count'] . ')';
+    }, $classRows);
+    
+    // Get distinct L_Type_ values (specific types like Condominium, Cabin, etc.)
+    $typeStmt = $pdo->query("SELECT DISTINCT L_Type_, COUNT(*) as count FROM rets_property WHERE L_Type_ IS NOT NULL AND L_Type_ != '' GROUP BY L_Type_ ORDER BY L_Type_");
+    $typeRows = $typeStmt->fetchAll();
+    $subTypes = array_map(function($row) {
+        return 'L_Type_: ' . $row['L_Type_'] . ' (' . $row['count'] . ')';
+    }, $typeRows);
+    
+    $distinctPropertyTypes = array_merge($classTypes, $subTypes);
+} catch (Throwable $e) {
+    // Ignore errors in debug query
+    $distinctPropertyTypes = ['Error fetching distinct types: ' . $e->getMessage()];
+}
+
 // ---- Get query parameters for filtering
 $minPrice = isset($_GET['minPrice']) ? max(0, (int)$_GET['minPrice']) : 0;
 $maxPrice = isset($_GET['maxPrice']) ? max($minPrice, (int)$_GET['maxPrice']) : 100000000;
@@ -129,16 +152,15 @@ if ($bathrooms !== null) {
     $params[':bathrooms'] = $bathrooms;
 }
 if ($propertyType !== null) {
-    // Map frontend property types to database values
-    $propertyTypeMap = [
-        'house' => 'Residential',
-        'condo' => 'Condo/Co-op',
-        'townhouse' => 'Townhouse',
-        'apartment' => 'Apartment',
-    ];
-    $dbPropertyType = $propertyTypeMap[$propertyType] ?? $propertyType;
-    $where[] = 'L_Class = :propertyType';
-    $params[':propertyType'] = $dbPropertyType;
+    // Check propertyTypeFilter value to determine which column to filter
+    // "Residential" is stored in L_Class, all other types (Condominium, Cabin, etc.) are in L_Type_
+    if ($propertyType === 'Residential') {
+        $where[] = 'TRIM(L_Class) = TRIM(:propertyType)';
+    } else {
+        // All specific types (Condominium, Cabin, Duplex, etc.) are in L_Type_ (PropertySubType)
+        $where[] = 'TRIM(L_Type_) = TRIM(:propertyType)';
+    }
+    $params[':propertyType'] = $propertyType;
 }
 if ($status !== null) {
     // Map frontend status to database values
@@ -329,18 +351,8 @@ function mapPropertyToHouse(array $row): array {
     // Default image if none available
     $imageUrl = !empty($images) ? $images[0] : 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800';
     
-    // Map property type
-    $propertyTypeMap = [
-        'Residential' => 'house',
-        'Condo/Co-op' => 'condo',
-        'Townhouse' => 'townhouse',
-        'Apartment' => 'apartment',
-    ];
-    $propertyType = 'house'; // default
-    if (!empty($row['propertyType'])) {
-        $dbType = $row['propertyType'];
-        $propertyType = $propertyTypeMap[$dbType] ?? 'house';
-    }
+    // Use database property type value directly (frontend handles display mapping)
+    $propertyType = !empty($row['propertyType']) ? $row['propertyType'] : 'SingleFamilyResidence';
     
     // Map status
     $statusMap = [
@@ -427,6 +439,11 @@ try {
             'houseCount' => isset($houses) ? count($houses) : 0,
             'firstPrice' => !empty($rows[0]['L_SystemPrice']) ? (float)$rows[0]['L_SystemPrice'] : null,
             'lastPrice' => !empty($rows[count($rows)-1]['L_SystemPrice']) ? (float)$rows[count($rows)-1]['L_SystemPrice'] : null,
+            'propertyTypeFilter' => $propertyType,
+            'whereClause' => isset($whereClause) ? $whereClause : 'ERROR: NOT SET',
+            'uniquePropertyTypes' => !empty($rows) ? array_values(array_unique(array_filter(array_column($rows, 'propertyType')))) : [],
+            'distinctPropertyTypesInDB' => $distinctPropertyTypes,
+            'params' => $params,
         ],
         'data' => isset($houses) ? $houses : [],
     ];

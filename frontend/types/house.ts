@@ -9,7 +9,7 @@ export interface House {
   bedrooms: number;
   bathrooms: number;
   squareFeet: number;
-  propertyType: 'house' | 'apartment' | 'condo' | 'townhouse';
+  propertyType: string; // Supports: SingleFamilyResidence, Condominium, Townhouse, Duplex, Triplex, Cabin, ManufacturedHome, ManufacturedOnLand, MobileHome, MixedUse, StockCooperative
   status: 'for-sale' | 'for-rent';
   description: string;
   imageUrl: string;
