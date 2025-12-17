@@ -46,11 +46,9 @@ export default function PropertyQuickViewDrawer({ open, propertyId, onClose }: P
     }
   }, [open, onClose]);
 
-  // Handle click outside
-  const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
+  // Handle click outside - close when clicking on overlay/backdrop
+  const handleOverlayClick = () => {
+    onClose();
   };
 
   if (!open) return null;
@@ -58,13 +56,15 @@ export default function PropertyQuickViewDrawer({ open, propertyId, onClose }: P
   return (
     <div
       className="fixed inset-0 z-[200] overflow-hidden"
-      onClick={handleOverlayClick}
       aria-modal="true"
       role="dialog"
       aria-labelledby="drawer-title"
     >
-      {/* Overlay */}
-      <div className="absolute inset-0 bg-black/50 transition-opacity" />
+      {/* Overlay - clickable backdrop */}
+      <div 
+        className="absolute inset-0 bg-black/50 transition-opacity"
+        onClick={handleOverlayClick}
+      />
 
       {/* Drawer Panel */}
       <div
