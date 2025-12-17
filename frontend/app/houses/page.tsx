@@ -7,6 +7,7 @@ import SearchBar from '@/components/SearchBar';
 import FilterPanel from '@/components/FilterPanel';
 import FavoritesLink from '@/components/FavoritesLink';
 import PropertyQuickViewDrawer from '@/components/PropertyQuickViewDrawer';
+import Link from 'next/link';
 
 export default function HousesPage() {
   const [houses, setHouses] = useState<House[]>([]);
@@ -304,7 +305,18 @@ export default function HousesPage() {
               <h1 className="text-3xl font-bold text-gray-900">Find Your Dream Home</h1>
               <p className="mt-2 text-gray-600">Browse through our collection of properties</p>
             </div>
-            <FavoritesLink />
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => window.dispatchEvent(new Event('pnc:open-chat'))}
+                className="inline-flex items-center gap-2 px-4 py-2 text-blue-600 hover:text-blue-700 font-medium rounded-lg hover:bg-blue-50 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                </svg>
+                Chat Assistant
+              </button>
+              <FavoritesLink />
+            </div>
           </div>
         </div>
       </header>

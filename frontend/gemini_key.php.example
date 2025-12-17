@@ -1,0 +1,16 @@
+<?php
+/**
+ * Gemini API Key Configuration
+ * 
+ * INSTRUCTIONS:
+ * 1. Copy this file to one directory ABOVE the web root (e.g., ../gemini_key.php)
+ * 2. Replace 'YOUR_API_KEY_HERE' with your actual Gemini API key
+ * 3. Ensure the file is NOT accessible via web (outside public_html/www)
+ * 4. Set proper file permissions (chmod 600)
+ * 
+ * ALTERNATIVE: Set environment variable GEMINI_API_KEY in your hosting control panel
+ */
+
+return 'YOUR_API_KEY_HERE';
+
+

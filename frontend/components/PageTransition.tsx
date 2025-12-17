@@ -13,7 +13,7 @@ export default function PageTransition({ children }: PageTransitionProps) {
   const [displayChildren, setDisplayChildren] = useState(children);
   const [transitionState, setTransitionState] = useState<'idle' | 'exiting' | 'entering'>('idle');
   const prevKeyRef = useRef<string>('');
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // Create a unique key for the current route (pathname + search params)
   const currentKey = `${pathname}?${searchParams.toString()}`;
