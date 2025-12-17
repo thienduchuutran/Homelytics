@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { House } from '@/types/house';
 import HouseCard from '@/components/HouseCard';
-import PropertyQuickViewDrawer from '@/components/PropertyQuickViewDrawer';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -16,23 +15,25 @@ interface ChatMessage {
 interface ChatPanelProps {
   variant?: 'page' | 'widget';
   onClose?: () => void;
+  onQuickView?: (propertyId: string) => void;
 }
 
 const CHAT_HISTORY_KEY = 'pnc:chat:history:v1';
 const CHAT_CONTEXT_KEY = 'pnc:chat:context:v1';
 
 const SUGGESTIONS = [
-  '3 bed under 800k in Irvine',
-  'Show condos under 600k',
-  'Add pool and garage',
+  '4 beds with a big yard',
+  'No HOA under $800k',
+  'New listings in Irvine last 7 days',
+  'Townhomes with attached garage',
+  'Senior community with pool',
   'reset'
 ];
 
-export default function ChatPanel({ variant = 'page', onClose }: ChatPanelProps) {
+export default function ChatPanel({ variant = 'page', onClose, onQuickView }: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [quickViewId, setQuickViewId] = useState<string | null>(null);
   const [currentFilters, setCurrentFilters] = useState<any>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -74,19 +75,95 @@ export default function ChatPanel({ variant = 'page', onClose }: ChatPanelProps)
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
+  // Client-side filtering for filters not supported by PHP endpoint
+  // Note: Most filters are now handled server-side, but we keep this for any edge cases
+  const applyClientSideFilters = (houses: House[], filters: any): House[] => {
+    let filtered = [...houses];
+
+    // Filter by property types array (if multiple types specified and server only used first)
+    if (filters.propertyTypes && Array.isArray(filters.propertyTypes) && filters.propertyTypes.length > 1) {
+      filtered = filtered.filter(house => {
+        const houseType = house.propertyType || '';
+        return filters.propertyTypes.some((type: string) => 
+          houseType.toLowerCase().includes(type.toLowerCase())
+        );
+      });
+    }
+
+    // Keywords are now handled server-side, but keep client-side as fallback for description search
+    if (filters.keywords && Array.isArray(filters.keywords) && filters.keywords.length > 0) {
+      filtered = filtered.filter(house => {
+        const searchText = `${house.description || ''} ${house.address || ''} ${house.city || ''}`.toLowerCase();
+        return filters.keywords.some((keyword: string) => 
+          searchText.includes(keyword.toLowerCase())
+        );
+      });
+    }
+
+    return filtered;
+  };
+
   // Fetch properties using existing API logic
   const fetchProperties = async (filters: any): Promise<House[]> => {
     const params = new URLSearchParams();
     
-    // Map Gemini filters to API params
+    // Map Gemini filters to API params (server-side supported filters)
     if (filters.minPrice) params.append('minPrice', filters.minPrice.toString());
     if (filters.maxPrice) params.append('maxPrice', filters.maxPrice.toString());
     if (filters.minBeds) params.append('bedrooms', filters.minBeds.toString());
     if (filters.minBaths) params.append('bathrooms', filters.minBaths.toString());
     if (filters.minSqft) params.append('minSqft', filters.minSqft.toString());
-    if (filters.type && filters.type !== 'all') params.append('propertyType', filters.type);
+    
+    // Handle property type: use first from array if array, otherwise use single type
+    if (filters.propertyTypes && Array.isArray(filters.propertyTypes) && filters.propertyTypes.length > 0) {
+      params.append('propertyType', filters.propertyTypes[0]);
+    } else if (filters.type && filters.type !== 'all') {
+      params.append('propertyType', filters.type);
+    }
+    
     if (filters.city) params.append('search', filters.city);
     if (filters.zip) params.append('search', filters.zip);
+    
+    // Lot/Yard filters
+    if (filters.minLotSqft) params.append('minLotSqft', filters.minLotSqft.toString());
+    if (filters.minLotAcres) params.append('minLotAcres', filters.minLotAcres.toString());
+    if (filters.lotFeatures && Array.isArray(filters.lotFeatures) && filters.lotFeatures.length > 0) {
+      params.append('lotFeatures', filters.lotFeatures.join(','));
+    }
+    
+    // HOA filters
+    if (filters.hasHOA !== undefined && filters.hasHOA !== null) {
+      params.append('hasHOA', filters.hasHOA ? '1' : '0');
+    }
+    if (filters.maxHOA) params.append('maxHOA', filters.maxHOA.toString());
+    if (filters.hoaFrequency) params.append('hoaFrequency', filters.hoaFrequency);
+    
+    // Extended must-have filters
+    if (filters.mustHave) {
+      if (filters.mustHave.spa === true) params.append('mustHaveSpa', '1');
+      if (filters.mustHave.seniorCommunity === true) params.append('mustHaveSeniorCommunity', '1');
+      if (filters.mustHave.cooling === true) params.append('mustHaveCooling', '1');
+      if (filters.mustHave.attachedGarage === true) params.append('mustHaveAttachedGarage', '1');
+      if (filters.mustHave.pool === true) params.append('mustHavePool', '1');
+      if (filters.mustHave.garage === true) params.append('mustHaveGarage', '1');
+      if (filters.mustHave.fireplace === true) params.append('mustHaveFireplace', '1');
+      if (filters.mustHave.view === true) params.append('mustHaveView', '1');
+      if (filters.mustHave.newConstruction === true) params.append('mustHaveNewConstruction', '1');
+    }
+    
+    // Time/Market filters
+    if (filters.maxDaysOnMarket) params.append('maxDaysOnMarket', filters.maxDaysOnMarket.toString());
+    if (filters.listedAfter) params.append('listedAfter', filters.listedAfter);
+    
+    // Attached/Detached filter
+    if (filters.attached !== undefined && filters.attached !== null) {
+      params.append('attached', filters.attached ? '1' : '0');
+    }
+    
+    // Keywords filter
+    if (filters.keywords && Array.isArray(filters.keywords) && filters.keywords.length > 0) {
+      params.append('keywords', filters.keywords.join(','));
+    }
     
     // Default to for-sale if not specified
     params.append('status', 'for-sale');
@@ -108,13 +185,15 @@ export default function ChatPanel({ variant = 'page', onClose }: ChatPanelProps)
       const data = await response.json();
       
       // Handle different response formats
+      let houses: House[] = [];
       if (Array.isArray(data)) {
-        return data;
+        houses = data;
       } else if (data && typeof data === 'object' && 'data' in data && Array.isArray(data.data)) {
-        return data.data;
+        houses = data.data;
       }
       
-      return [];
+      // Apply client-side filters for unsupported filters
+      return applyClientSideFilters(houses, filters);
     } catch (error) {
       console.error('Error fetching properties:', error);
       return [];
@@ -254,6 +333,102 @@ export default function ChatPanel({ variant = 'page', onClose }: ChatPanelProps)
               <div className={`max-w-[85%] ${msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-white text-gray-900'} rounded-2xl px-4 py-3 shadow-sm ${isWidget ? 'text-sm' : ''}`}>
                 <p className="whitespace-pre-wrap">{msg.content}</p>
                 
+                {/* Show active filters as chips */}
+                {msg.role === 'assistant' && msg.filters && Object.keys(msg.filters).length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-gray-200 flex flex-wrap gap-2">
+                    {msg.filters.minPrice && (
+                      <span className={`${isWidget ? 'text-xs px-2 py-0.5' : 'text-xs px-2 py-1'} bg-blue-50 text-blue-700 rounded-full`}>
+                        Min: ${(msg.filters.minPrice / 1000).toFixed(0)}k
+                      </span>
+                    )}
+                    {msg.filters.maxPrice && (
+                      <span className={`${isWidget ? 'text-xs px-2 py-0.5' : 'text-xs px-2 py-1'} bg-blue-50 text-blue-700 rounded-full`}>
+                        Max: ${(msg.filters.maxPrice / 1000).toFixed(0)}k
+                      </span>
+                    )}
+                    {msg.filters.minBeds && (
+                      <span className={`${isWidget ? 'text-xs px-2 py-0.5' : 'text-xs px-2 py-1'} bg-blue-50 text-blue-700 rounded-full`}>
+                        {msg.filters.minBeds}+ beds
+                      </span>
+                    )}
+                    {msg.filters.minBaths && (
+                      <span className={`${isWidget ? 'text-xs px-2 py-0.5' : 'text-xs px-2 py-1'} bg-blue-50 text-blue-700 rounded-full`}>
+                        {msg.filters.minBaths}+ baths
+                      </span>
+                    )}
+                    {msg.filters.minSqft && (
+                      <span className={`${isWidget ? 'text-xs px-2 py-0.5' : 'text-xs px-2 py-1'} bg-blue-50 text-blue-700 rounded-full`}>
+                        {msg.filters.minSqft.toLocaleString()}+ sqft
+                      </span>
+                    )}
+                    {msg.filters.minLotSqft && (
+                      <span className={`${isWidget ? 'text-xs px-2 py-0.5' : 'text-xs px-2 py-1'} bg-green-50 text-green-700 rounded-full`}>
+                        Lot ≥ {msg.filters.minLotSqft.toLocaleString()} sqft
+                      </span>
+                    )}
+                    {msg.filters.minLotAcres && (
+                      <span className={`${isWidget ? 'text-xs px-2 py-0.5' : 'text-xs px-2 py-1'} bg-green-50 text-green-700 rounded-full`}>
+                        Lot ≥ {msg.filters.minLotAcres} acres
+                      </span>
+                    )}
+                    {msg.filters.hasHOA === false && (
+                      <span className={`${isWidget ? 'text-xs px-2 py-0.5' : 'text-xs px-2 py-1'} bg-purple-50 text-purple-700 rounded-full`}>
+                        No HOA
+                      </span>
+                    )}
+                    {msg.filters.maxHOA && (
+                      <span className={`${isWidget ? 'text-xs px-2 py-0.5' : 'text-xs px-2 py-1'} bg-purple-50 text-purple-700 rounded-full`}>
+                        HOA ≤ ${msg.filters.maxHOA}/mo
+                      </span>
+                    )}
+                    {msg.filters.maxDaysOnMarket && (
+                      <span className={`${isWidget ? 'text-xs px-2 py-0.5' : 'text-xs px-2 py-1'} bg-orange-50 text-orange-700 rounded-full`}>
+                        DOM ≤ {msg.filters.maxDaysOnMarket}
+                      </span>
+                    )}
+                    {msg.filters.mustHave?.pool && (
+                      <span className={`${isWidget ? 'text-xs px-2 py-0.5' : 'text-xs px-2 py-1'} bg-yellow-50 text-yellow-700 rounded-full`}>
+                        Pool
+                      </span>
+                    )}
+                    {msg.filters.mustHave?.garage && (
+                      <span className={`${isWidget ? 'text-xs px-2 py-0.5' : 'text-xs px-2 py-1'} bg-yellow-50 text-yellow-700 rounded-full`}>
+                        Garage
+                      </span>
+                    )}
+                    {msg.filters.mustHave?.attachedGarage && (
+                      <span className={`${isWidget ? 'text-xs px-2 py-0.5' : 'text-xs px-2 py-1'} bg-yellow-50 text-yellow-700 rounded-full`}>
+                        Attached Garage
+                      </span>
+                    )}
+                    {msg.filters.mustHave?.spa && (
+                      <span className={`${isWidget ? 'text-xs px-2 py-0.5' : 'text-xs px-2 py-1'} bg-yellow-50 text-yellow-700 rounded-full`}>
+                        Spa
+                      </span>
+                    )}
+                    {msg.filters.mustHave?.seniorCommunity && (
+                      <span className={`${isWidget ? 'text-xs px-2 py-0.5' : 'text-xs px-2 py-1'} bg-yellow-50 text-yellow-700 rounded-full`}>
+                        55+ Community
+                      </span>
+                    )}
+                    {msg.filters.mustHave?.cooling && (
+                      <span className={`${isWidget ? 'text-xs px-2 py-0.5' : 'text-xs px-2 py-1'} bg-yellow-50 text-yellow-700 rounded-full`}>
+                        AC
+                      </span>
+                    )}
+                    {msg.filters.city && (
+                      <span className={`${isWidget ? 'text-xs px-2 py-0.5' : 'text-xs px-2 py-1'} bg-gray-100 text-gray-700 rounded-full`}>
+                        {msg.filters.city}
+                      </span>
+                    )}
+                    {msg.filters.zip && (
+                      <span className={`${isWidget ? 'text-xs px-2 py-0.5' : 'text-xs px-2 py-1'} bg-gray-100 text-gray-700 rounded-full`}>
+                        {msg.filters.zip}
+                      </span>
+                    )}
+                  </div>
+                )}
+                
                 {/* Show properties if available */}
                 {msg.properties && msg.properties.length > 0 && (
                   <div className="mt-4 pt-4 border-t border-gray-200">
@@ -263,7 +438,7 @@ export default function ChatPanel({ variant = 'page', onClose }: ChatPanelProps)
                         <HouseCard
                           key={house.id}
                           house={house}
-                          onQuickView={(id) => setQuickViewId(id)}
+                          onQuickView={onQuickView || undefined}
                         />
                       ))}
                     </div>
@@ -360,13 +535,6 @@ export default function ChatPanel({ variant = 'page', onClose }: ChatPanelProps)
           </div>
         </div>
       </div>
-
-      {/* Quick View Drawer */}
-      <PropertyQuickViewDrawer
-        open={quickViewId !== null}
-        propertyId={quickViewId}
-        onClose={() => setQuickViewId(null)}
-      />
     </div>
   );
 }

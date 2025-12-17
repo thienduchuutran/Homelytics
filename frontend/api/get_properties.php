@@ -15,7 +15,7 @@ ini_set('log_errors', '1');
 error_reporting(E_ALL);
 
 // FORCE VERSION CHECK - if you see this in response, new file is loaded
-$FILE_VERSION = '2.0-SORTING-FIXED';
+$FILE_VERSION = '3.0-ENHANCED-FILTERS';
 
 // Set output buffering to catch any errors
 ob_start();
@@ -123,6 +123,38 @@ $propertyType = isset($_GET['propertyType']) && $_GET['propertyType'] !== 'all' 
 $status = isset($_GET['status']) && $_GET['status'] !== 'all' ? trim($_GET['status']) : null;
 $searchTerm = isset($_GET['search']) ? trim($_GET['search']) : '';
 
+// ---- New filter parameters
+// Lot/Yard filters
+$minLotSqft = isset($_GET['minLotSqft']) && $_GET['minLotSqft'] !== '' ? max(0, (int)$_GET['minLotSqft']) : null;
+$minLotAcres = isset($_GET['minLotAcres']) && $_GET['minLotAcres'] !== '' ? max(0, (float)$_GET['minLotAcres']) : null;
+$lotFeatures = isset($_GET['lotFeatures']) ? trim($_GET['lotFeatures']) : null; // Comma-separated or single value
+
+// HOA filters
+$hasHOA = isset($_GET['hasHOA']) && $_GET['hasHOA'] !== '' ? filter_var($_GET['hasHOA'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) : null;
+$maxHOA = isset($_GET['maxHOA']) && $_GET['maxHOA'] !== '' ? max(0, (float)$_GET['maxHOA']) : null;
+$hoaFrequency = isset($_GET['hoaFrequency']) ? trim($_GET['hoaFrequency']) : null;
+
+// Extended must-have filters
+$mustHaveSpa = isset($_GET['mustHaveSpa']) && $_GET['mustHaveSpa'] !== '' ? filter_var($_GET['mustHaveSpa'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) : null;
+$mustHaveSeniorCommunity = isset($_GET['mustHaveSeniorCommunity']) && $_GET['mustHaveSeniorCommunity'] !== '' ? filter_var($_GET['mustHaveSeniorCommunity'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) : null;
+$mustHaveCooling = isset($_GET['mustHaveCooling']) && $_GET['mustHaveCooling'] !== '' ? filter_var($_GET['mustHaveCooling'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) : null;
+$mustHaveAttachedGarage = isset($_GET['mustHaveAttachedGarage']) && $_GET['mustHaveAttachedGarage'] !== '' ? filter_var($_GET['mustHaveAttachedGarage'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) : null;
+$mustHavePool = isset($_GET['mustHavePool']) && $_GET['mustHavePool'] !== '' ? filter_var($_GET['mustHavePool'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) : null;
+$mustHaveGarage = isset($_GET['mustHaveGarage']) && $_GET['mustHaveGarage'] !== '' ? filter_var($_GET['mustHaveGarage'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) : null;
+$mustHaveFireplace = isset($_GET['mustHaveFireplace']) && $_GET['mustHaveFireplace'] !== '' ? filter_var($_GET['mustHaveFireplace'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) : null;
+$mustHaveView = isset($_GET['mustHaveView']) && $_GET['mustHaveView'] !== '' ? filter_var($_GET['mustHaveView'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) : null;
+$mustHaveNewConstruction = isset($_GET['mustHaveNewConstruction']) && $_GET['mustHaveNewConstruction'] !== '' ? filter_var($_GET['mustHaveNewConstruction'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) : null;
+
+// Time/Market filters
+$maxDaysOnMarket = isset($_GET['maxDaysOnMarket']) && $_GET['maxDaysOnMarket'] !== '' ? max(0, (int)$_GET['maxDaysOnMarket']) : null;
+$listedAfter = isset($_GET['listedAfter']) ? trim($_GET['listedAfter']) : null; // YYYY-MM-DD format
+
+// Attached/Detached filter
+$attached = isset($_GET['attached']) && $_GET['attached'] !== '' ? filter_var($_GET['attached'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) : null;
+
+// Keywords filter (comma-separated, searches multiple fields)
+$keywords = isset($_GET['keywords']) ? trim($_GET['keywords']) : null;
+
 // TEST: Uncomment this to verify new file is loaded
 // header('Content-Type: application/json');
 // echo json_encode(['_test' => 'NEW FILE LOADED', 'version' => $FILE_VERSION]);
@@ -150,6 +182,12 @@ if ($bedrooms !== null) {
 if ($bathrooms !== null) {
     $where[] = 'LM_Dec_3 >= :bathrooms';
     $params[':bathrooms'] = $bathrooms;
+}
+// Square feet filter (minSqft)
+$minSqft = isset($_GET['minSqft']) && $_GET['minSqft'] !== '' ? max(0, (int)$_GET['minSqft']) : null;
+if ($minSqft !== null && $minSqft > 0) {
+    $where[] = 'LM_Int2_3 >= :minSqft';
+    $params[':minSqft'] = $minSqft;
 }
 if ($propertyType !== null) {
     // Check propertyTypeFilter value to determine which column to filter
@@ -189,6 +227,133 @@ if ($searchTerm !== '') {
     $params[':search2'] = $searchPattern;
     $params[':search3'] = $searchPattern;
     $params[':search4'] = $searchPattern;
+}
+
+// ---- Lot/Yard filters
+if ($minLotSqft !== null && $minLotSqft > 0) {
+    $where[] = 'LotSizeSquareFeet >= :minLotSqft';
+    $params[':minLotSqft'] = $minLotSqft;
+}
+if ($minLotAcres !== null && $minLotAcres > 0) {
+    $where[] = 'LotSizeAcres >= :minLotAcres';
+    $params[':minLotAcres'] = $minLotAcres;
+}
+if ($lotFeatures !== null && $lotFeatures !== '') {
+    // Split comma-separated features and search in LotFeatures column
+    $features = array_map('trim', explode(',', $lotFeatures));
+    $featureConditions = [];
+    foreach ($features as $idx => $feature) {
+        if (!empty($feature)) {
+            $key = ':lotFeature' . $idx;
+            $featureConditions[] = "LotFeatures LIKE $key";
+            $params[$key] = '%' . $feature . '%';
+        }
+    }
+    if (!empty($featureConditions)) {
+        $where[] = '(' . implode(' OR ', $featureConditions) . ')';
+    }
+}
+
+// ---- HOA filters
+if ($hasHOA !== null) {
+    if ($hasHOA === true) {
+        $where[] = 'AssociationYN = :hasHOA';
+        $params[':hasHOA'] = 'Y';
+    } else {
+        $where[] = '(AssociationYN IS NULL OR AssociationYN = :hasHOA)';
+        $params[':hasHOA'] = 'N';
+    }
+}
+if ($maxHOA !== null && $maxHOA > 0) {
+    $where[] = 'AssociationFee <= :maxHOA';
+    $params[':maxHOA'] = $maxHOA;
+}
+if ($hoaFrequency !== null && $hoaFrequency !== '') {
+    $where[] = 'AssociationFeeFrequency = :hoaFrequency';
+    $params[':hoaFrequency'] = $hoaFrequency;
+}
+
+// ---- Extended must-have filters
+if ($mustHaveSpa === true) {
+    $where[] = 'SpaYN = :mustHaveSpa';
+    $params[':mustHaveSpa'] = 'Y';
+}
+if ($mustHaveSeniorCommunity === true) {
+    $where[] = 'SeniorCommunityYN = :mustHaveSeniorCommunity';
+    $params[':mustHaveSeniorCommunity'] = 'Y';
+}
+if ($mustHaveCooling === true) {
+    $where[] = 'CoolingYN = :mustHaveCooling';
+    $params[':mustHaveCooling'] = 'Y';
+}
+if ($mustHaveAttachedGarage === true) {
+    $where[] = 'AttachedGarageYN = :mustHaveAttachedGarage';
+    $params[':mustHaveAttachedGarage'] = 'Y';
+}
+if ($mustHavePool === true) {
+    $where[] = 'PoolPrivateYN = :mustHavePool';
+    $params[':mustHavePool'] = 'Y';
+}
+if ($mustHaveGarage === true) {
+    $where[] = 'GarageYN = :mustHaveGarage';
+    $params[':mustHaveGarage'] = 'Y';
+}
+if ($mustHaveFireplace === true) {
+    $where[] = 'FireplaceYN = :mustHaveFireplace';
+    $params[':mustHaveFireplace'] = 'Y';
+}
+if ($mustHaveView === true) {
+    $where[] = 'ViewYN = :mustHaveView';
+    $params[':mustHaveView'] = 'Y';
+}
+if ($mustHaveNewConstruction === true) {
+    $where[] = 'NewConstructionYN = :mustHaveNewConstruction';
+    $params[':mustHaveNewConstruction'] = 'Y';
+}
+
+// ---- Time/Market filters
+if ($maxDaysOnMarket !== null && $maxDaysOnMarket > 0) {
+    $where[] = 'DaysOnMarket <= :maxDaysOnMarket';
+    $params[':maxDaysOnMarket'] = $maxDaysOnMarket;
+}
+if ($listedAfter !== null && $listedAfter !== '') {
+    // Validate date format YYYY-MM-DD
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $listedAfter)) {
+        $where[] = 'OnMarketDate >= :listedAfter';
+        $params[':listedAfter'] = $listedAfter;
+    }
+}
+
+// ---- Attached/Detached filter
+if ($attached !== null) {
+    if ($attached === true) {
+        $where[] = 'PropertyAttachedYN = :attached';
+        $params[':attached'] = 'Y';
+    } else {
+        $where[] = '(PropertyAttachedYN IS NULL OR PropertyAttachedYN = :attached)';
+        $params[':attached'] = 'N';
+    }
+}
+
+// ---- Keywords filter (searches in multiple text fields)
+if ($keywords !== null && $keywords !== '') {
+    $keywordTerms = array_map('trim', explode(',', $keywords));
+    $keywordConditions = [];
+    foreach ($keywordTerms as $idx => $keyword) {
+        if (!empty($keyword)) {
+            $keywordPattern = '%' . $keyword . '%';
+            $keywordConditions[] = "(L_Remarks LIKE :keyword{$idx}_1 OR InteriorFeatures LIKE :keyword{$idx}_2 OR Appliances LIKE :keyword{$idx}_3 OR CommunityFeatures LIKE :keyword{$idx}_4 OR LotFeatures LIKE :keyword{$idx}_5 OR View LIKE :keyword{$idx}_6)";
+            $params[":keyword{$idx}_1"] = $keywordPattern;
+            $params[":keyword{$idx}_2"] = $keywordPattern;
+            $params[":keyword{$idx}_3"] = $keywordPattern;
+            $params[":keyword{$idx}_4"] = $keywordPattern;
+            $params[":keyword{$idx}_5"] = $keywordPattern;
+            $params[":keyword{$idx}_6"] = $keywordPattern;
+        }
+    }
+    if (!empty($keywordConditions)) {
+        $where[] = '(' . implode(' OR ', $keywordConditions) . ')';
+    }
 }
 
 // When sorting by price, exclude NULL and zero prices for better results
@@ -319,7 +484,29 @@ $sql = "SELECT
     YearBuilt,
     L_Keyword5 as parking,
     ListingContractDate,
-    L_Type_ as propertySubType
+    L_Type_ as propertySubType,
+    LotSizeSquareFeet,
+    LotSizeAcres,
+    LotFeatures,
+    AssociationYN,
+    AssociationFee,
+    AssociationFeeFrequency,
+    SpaYN,
+    SeniorCommunityYN,
+    CoolingYN,
+    AttachedGarageYN,
+    PropertyAttachedYN,
+    DaysOnMarket,
+    OnMarketDate,
+    PoolPrivateYN,
+    GarageYN,
+    FireplaceYN,
+    ViewYN,
+    NewConstructionYN,
+    InteriorFeatures,
+    Appliances,
+    CommunityFeatures,
+    View
 FROM rets_property 
 WHERE $whereClause
 ORDER BY " . $orderByClause . "

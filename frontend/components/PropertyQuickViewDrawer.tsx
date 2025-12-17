@@ -57,7 +57,7 @@ export default function PropertyQuickViewDrawer({ open, propertyId, onClose }: P
 
   return (
     <div
-      className="fixed inset-0 z-[100] overflow-hidden"
+      className="fixed inset-0 z-[200] overflow-hidden"
       onClick={handleOverlayClick}
       aria-modal="true"
       role="dialog"

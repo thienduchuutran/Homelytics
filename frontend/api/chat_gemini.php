@@ -141,6 +141,54 @@ Current filters context: " . json_encode($existingFilters) . "
 
 Extract and return filters based on the user's request. If user says 'reset', clear all filters. Otherwise, merge new filters with existing ones.
 
+PRICE PARSING:
+- Recognize 'k' as thousands: '800k' = 800000, '1.5M' = 1500000
+- Default interpretation: 'under 800k' = maxPrice: 800000
+
+LOT/YARD INTELLIGENCE:
+- 'big yard', 'large lot', 'yard big enough to play soccer' → minLotSqft: 6000 (default for big yard)
+- 'half acre' → minLotAcres: 0.5
+- '0.25 acres', 'quarter acre' → minLotAcres: 0.25
+- 'corner lot', 'cul-de-sac', 'gated' → lotFeatures: ['corner lot', 'cul-de-sac', 'gated']
+- Map to DB: LotSizeSquareFeet, LotSizeAcres, LotFeatures
+
+HOA FILTERS:
+- 'no HOA' → hasHOA: false
+- 'HOA under $300', 'HOA less than 300' → hasHOA: true, maxHOA: 300
+- 'has HOA amenities' → hasHOA: true (optional: AssociationAmenities keyword search)
+- Map to DB: AssociationYN, AssociationFee, AssociationFeeFrequency
+
+MUST-HAVE BOOLEANS:
+- 'hot tub', 'spa' → mustHave.spa: true (maps to SpaYN)
+- '55+', 'senior community' → mustHave.seniorCommunity: true (maps to SeniorCommunityYN)
+- 'AC', 'air conditioning', 'cooling' → mustHave.cooling: true (maps to CoolingYN)
+- 'attached garage' → mustHave.attachedGarage: true (maps to AttachedGarageYN)
+- Existing: pool (PoolPrivateYN), garage (GarageYN), fireplace (FireplaceYN), view (ViewYN), hoa (AssociationYN), newConstruction (NewConstructionYN)
+
+PROPERTY TYPES:
+- 'single family', 'single family home' → propertyTypes: ['SingleFamilyResidence'] or type: 'SingleFamilyResidence'
+- 'condo', 'condominium' → propertyTypes: ['Condominium'] or type: 'Condominium'
+- 'townhouse', 'townhome' → propertyTypes: ['Townhouse'] or type: 'Townhouse'
+- 'duplex' → propertyTypes: ['Duplex'] or type: 'Duplex'
+- 'attached' → attached: true (maps to PropertyAttachedYN)
+- 'detached' → attached: false
+- Map to DB: L_Type_ (primary), StructureType (secondary), PropertyAttachedYN
+
+TIME/MARKET FRESHNESS:
+- 'new listings', 'last 7 days' → maxDaysOnMarket: 7
+- 'under 30 DOM', 'days on market under 30' → maxDaysOnMarket: 30
+- 'listed after 2024-01-01' → listedAfter: '2024-01-01' (YYYY-MM-DD format)
+- Map to DB: DaysOnMarket, OnMarketDate
+
+KEYWORD SEARCHES:
+- 'open kitchen', 'stainless appliances', 'mountain view' → keywords: ['open kitchen', 'stainless appliances', 'mountain view']
+- Map to DB: search in L_Remarks, InteriorFeatures, Appliances, CommunityFeatures, LotFeatures, View
+
+UNIT PARSING:
+- Price: 'k' = thousands, 'M' = millions
+- Lot size: recognize 'sqft', 'square feet', 'acres', 'acre'
+- Bathrooms: 'half bath' = 0.5
+
 Property types: SingleFamilyResidence, Condominium, Townhouse, Duplex, Triplex, Cabin, ManufacturedHome, ManufacturedOnLand, MobileHome, MixedUse, StockCooperative, Residential
 
 Respond naturally but always return valid JSON.";
@@ -173,6 +221,29 @@ $geminiRequest = [
                         'minBaths' => ['type' => 'number', 'nullable' => true],
                         'minSqft' => ['type' => 'number', 'nullable' => true],
                         'type' => ['type' => 'string', 'nullable' => true],
+                        'propertyTypes' => [
+                            'type' => 'array',
+                            'items' => ['type' => 'string'],
+                            'nullable' => true
+                        ],
+                        'attached' => ['type' => 'boolean', 'nullable' => true],
+                        'minLotSqft' => ['type' => 'number', 'nullable' => true],
+                        'minLotAcres' => ['type' => 'number', 'nullable' => true],
+                        'lotFeatures' => [
+                            'type' => 'array',
+                            'items' => ['type' => 'string'],
+                            'nullable' => true
+                        ],
+                        'hasHOA' => ['type' => 'boolean', 'nullable' => true],
+                        'maxHOA' => ['type' => 'number', 'nullable' => true],
+                        'hoaFrequency' => ['type' => 'string', 'nullable' => true],
+                        'maxDaysOnMarket' => ['type' => 'number', 'nullable' => true],
+                        'listedAfter' => ['type' => 'string', 'nullable' => true],
+                        'keywords' => [
+                            'type' => 'array',
+                            'items' => ['type' => 'string'],
+                            'nullable' => true
+                        ],
                         'mustHave' => [
                             'type' => 'object',
                             'properties' => [
@@ -181,7 +252,11 @@ $geminiRequest = [
                                 'fireplace' => ['type' => 'boolean', 'nullable' => true],
                                 'view' => ['type' => 'boolean', 'nullable' => true],
                                 'hoa' => ['type' => 'boolean', 'nullable' => true],
-                                'newConstruction' => ['type' => 'boolean', 'nullable' => true]
+                                'newConstruction' => ['type' => 'boolean', 'nullable' => true],
+                                'spa' => ['type' => 'boolean', 'nullable' => true],
+                                'seniorCommunity' => ['type' => 'boolean', 'nullable' => true],
+                                'cooling' => ['type' => 'boolean', 'nullable' => true],
+                                'attachedGarage' => ['type' => 'boolean', 'nullable' => true]
                             ],
                             'nullable' => true
                         ]

@@ -2,9 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react';
 import ChatPanel from './ChatPanel';
+import PropertyQuickViewDrawer from '@/components/PropertyQuickViewDrawer';
 
 export default function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
+  const [quickViewId, setQuickViewId] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   // Listen for open event
@@ -94,11 +96,22 @@ export default function ChatWidget() {
 
             {/* Chat Panel Content */}
             <div className="flex-1 overflow-hidden">
-              <ChatPanel variant="widget" onClose={() => setIsOpen(false)} />
+              <ChatPanel 
+                variant="widget" 
+                onClose={() => setIsOpen(false)}
+                onQuickView={(id) => setQuickViewId(id)}
+              />
             </div>
           </div>
         </div>
       )}
+
+      {/* Quick View Drawer - Rendered outside chat widget so it overlays entire screen */}
+      <PropertyQuickViewDrawer
+        open={quickViewId !== null}
+        propertyId={quickViewId}
+        onClose={() => setQuickViewId(null)}
+      />
     </>
   );
 }
