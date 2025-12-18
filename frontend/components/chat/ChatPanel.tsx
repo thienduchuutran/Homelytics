@@ -4,10 +4,46 @@ import { useState, useEffect, useRef } from 'react';
 import { House } from '@/types/house';
 import HouseCard from '@/components/HouseCard';
 
+interface MustHaveFilters {
+  spa?: boolean;
+  seniorCommunity?: boolean;
+  cooling?: boolean;
+  attachedGarage?: boolean;
+  pool?: boolean;
+  garage?: boolean;
+  fireplace?: boolean;
+  view?: boolean;
+  newConstruction?: boolean;
+}
+
+interface ChatFilters {
+  minPrice?: number;
+  maxPrice?: number;
+  minBeds?: number;
+  minBaths?: number;
+  minSqft?: number;
+  propertyTypes?: string[];
+  type?: string;
+  city?: string;
+  zip?: string;
+  keywords?: string | string[];
+  minLotSqft?: number;
+  minLotAcres?: number;
+  lotFeatures?: string[];
+  hasHOA?: boolean;
+  maxHOA?: number;
+  hoaFrequency?: string;
+  mustHave?: MustHaveFilters;
+  maxDaysOnMarket?: number;
+  listedAfter?: string;
+  attached?: boolean;
+  [key: string]: unknown;
+}
+
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
-  filters?: any;
+  filters?: ChatFilters;
   properties?: House[];
   timestamp: number;
 }
@@ -30,11 +66,11 @@ const SUGGESTIONS = [
   'reset'
 ];
 
-export default function ChatPanel({ variant = 'page', onClose, onQuickView }: ChatPanelProps) {
+export default function ChatPanel({ variant = 'page', onQuickView }: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [currentFilters, setCurrentFilters] = useState<any>({});
+  const [currentFilters, setCurrentFilters] = useState<ChatFilters>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
@@ -77,34 +113,37 @@ export default function ChatPanel({ variant = 'page', onClose, onQuickView }: Ch
 
   // Client-side filtering for filters not supported by PHP endpoint
   // Note: Most filters are now handled server-side, but we keep this for any edge cases
-  const applyClientSideFilters = (houses: House[], filters: any): House[] => {
+  const applyClientSideFilters = (houses: House[], filters: ChatFilters): House[] => {
     let filtered = [...houses];
 
     // Filter by property types array (if multiple types specified and server only used first)
     if (filters.propertyTypes && Array.isArray(filters.propertyTypes) && filters.propertyTypes.length > 1) {
       filtered = filtered.filter(house => {
         const houseType = house.propertyType || '';
-        return filters.propertyTypes.some((type: string) => 
+        return filters.propertyTypes!.some((type: string) => 
           houseType.toLowerCase().includes(type.toLowerCase())
         );
       });
     }
 
     // Keywords are now handled server-side, but keep client-side as fallback for description search
-    if (filters.keywords && Array.isArray(filters.keywords) && filters.keywords.length > 0) {
-      filtered = filtered.filter(house => {
-        const searchText = `${house.description || ''} ${house.address || ''} ${house.city || ''}`.toLowerCase();
-        return filters.keywords.some((keyword: string) => 
-          searchText.includes(keyword.toLowerCase())
-        );
-      });
+    if (filters.keywords) {
+      const keywordArray = Array.isArray(filters.keywords) ? filters.keywords : [filters.keywords];
+      if (keywordArray.length > 0) {
+        filtered = filtered.filter(house => {
+          const searchText = `${house.description || ''} ${house.address || ''} ${house.city || ''}`.toLowerCase();
+          return keywordArray.some((keyword: string) => 
+            searchText.includes(keyword.toLowerCase())
+          );
+        });
+      }
     }
 
     return filtered;
   };
 
   // Fetch properties using existing API logic
-  const fetchProperties = async (filters: any): Promise<House[]> => {
+  const fetchProperties = async (filters: ChatFilters): Promise<House[]> => {
     const params = new URLSearchParams();
     
     // Map Gemini filters to API params (server-side supported filters)
@@ -311,7 +350,7 @@ export default function ChatPanel({ variant = 'page', onClose, onQuickView }: Ch
                 </svg>
               </div>
               <h2 className={`${isWidget ? 'text-lg' : 'text-xl'} font-semibold text-gray-900 mb-2`}>Start a conversation</h2>
-              <p className={`text-gray-600 ${isWidget ? 'mb-4 text-sm' : 'mb-6'}`}>Ask me to find properties, and I'll help you search!</p>
+              <p className={`text-gray-600 ${isWidget ? 'mb-4 text-sm' : 'mb-6'}`}>Ask me to find properties, and I&apos;ll help you search!</p>
               
               {/* Suggestion Chips */}
               <div className="flex flex-wrap gap-2 justify-center">

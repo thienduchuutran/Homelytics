@@ -31,6 +31,7 @@ interface MapViewProps {
 
 // Fix Leaflet default icon issue in Next.js
 if (typeof window !== 'undefined') {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   delete (L.Icon.Default.prototype as any)._getIconUrl;
   L.Icon.Default.mergeOptions({
     iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
@@ -123,37 +124,6 @@ export default function MapView({ properties, onMarkerClick, onBoundsChange, sel
       shadowSize: [41, 41],
     });
 
-    // Create yellow highlighted icon
-    const yellowIcon = L.divIcon({
-      className: 'custom-yellow-marker',
-      html: `
-        <div style="
-          width: 30px;
-          height: 41px;
-          background-color: #fbbf24;
-          border: 3px solid #ffffff;
-          border-radius: 50% 50% 50% 0;
-          transform: rotate(-45deg);
-          box-shadow: 0 3px 14px rgba(0,0,0,0.4);
-          position: relative;
-        ">
-          <div style="
-            width: 12px;
-            height: 12px;
-            background-color: #ffffff;
-            border-radius: 50%;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(45deg);
-          "></div>
-        </div>
-      `,
-      iconSize: [30, 41],
-      iconAnchor: [15, 41],
-      popupAnchor: [0, -36],
-    });
-
     // Create new markers
     properties.forEach(property => {
       const marker = L.marker([property.lat, property.lng], {
@@ -228,9 +198,9 @@ export default function MapView({ properties, onMarkerClick, onBoundsChange, sel
       }
     };
 
-    window.addEventListener('map-quick-view' as any, handleQuickView as EventListener);
+    window.addEventListener('map-quick-view', handleQuickView as EventListener);
     return () => {
-      window.removeEventListener('map-quick-view' as any, handleQuickView as EventListener);
+      window.removeEventListener('map-quick-view', handleQuickView as EventListener);
     };
   }, [properties, onMarkerClick]);
 

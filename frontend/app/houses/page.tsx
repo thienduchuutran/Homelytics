@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { House, FilterOptions } from '@/types/house';
 import HouseCard from '@/components/HouseCard';
 import SearchBar from '@/components/SearchBar';

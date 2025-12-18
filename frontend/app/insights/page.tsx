@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { parseFiltersFromQuery, buildInsightsUrl } from '@/app/lib/parseFiltersFromQuery';
+import { parseFiltersFromQuery } from '@/app/lib/parseFiltersFromQuery';
 import FavoritesLink from '@/components/FavoritesLink';
 
 interface InsightsSummary {

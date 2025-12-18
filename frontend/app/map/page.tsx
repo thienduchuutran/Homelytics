@@ -110,10 +110,11 @@ export default function MapPage() {
       } else {
         setProperties([]);
       }
-    } catch (err: any) {
-      if (err.name === 'AbortError') return;
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       console.error('Error fetching properties:', err);
-      setError(err.message || 'Failed to fetch properties');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch properties';
+      setError(errorMessage);
       setProperties([]);
     } finally {
       if (!abortController.signal.aborted) {

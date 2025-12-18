@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useRef } from 'react';
-import { useFavorites, Favorite } from '@/app/lib/useFavorites';
+import { useFavorites } from '@/app/lib/useFavorites';
 import Image from 'next/image';
 import Link from 'next/link';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -165,7 +165,7 @@ export default function FavoritesPage() {
         
         // Clear message after 5 seconds
         setTimeout(() => setImportMessage(null), 5000);
-      } catch (error) {
+      } catch {
         setImportMessage({ type: 'error', text: 'Failed to read file' });
         setTimeout(() => setImportMessage(null), 5000);
       }
