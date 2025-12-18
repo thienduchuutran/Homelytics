@@ -39,6 +39,7 @@ export default function MapPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
+  const [hoveredPropertyId, setHoveredPropertyId] = useState<string | null>(null);
   const [quickViewId, setQuickViewId] = useState<string | null>(null);
   const [currentBounds, setCurrentBounds] = useState<MapBounds | null>(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -253,6 +254,7 @@ export default function MapPage() {
             onMarkerClick={handlePropertyClick}
             onBoundsChange={handleBoundsChange}
             selectedPropertyId={selectedPropertyId}
+            hoveredPropertyId={hoveredPropertyId}
           />
         </div>
 
@@ -265,6 +267,7 @@ export default function MapPage() {
             onPropertyClick={handlePropertyClick}
             selectedPropertyId={selectedPropertyId}
             isLoading={loading}
+            onPropertyHover={setHoveredPropertyId}
           />
         </div>
       </div>

@@ -24,10 +24,21 @@ interface MapListProps {
   onPropertyClick: (property: MapProperty) => void;
   selectedPropertyId?: string | null;
   isLoading?: boolean;
+  onPropertyHover?: (propertyId: string | null) => void;
 }
 
-export default function MapList({ properties, onPropertyClick, selectedPropertyId, isLoading }: MapListProps) {
+export default function MapList({ properties, onPropertyClick, selectedPropertyId, isLoading, onPropertyHover }: MapListProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+
+  const handleMouseEnter = (propertyId: string) => {
+    setHoveredId(propertyId);
+    onPropertyHover?.(propertyId);
+  };
+
+  const handleMouseLeave = () => {
+    setHoveredId(null);
+    onPropertyHover?.(null);
+  };
 
   if (isLoading) {
     return (
@@ -79,8 +90,8 @@ export default function MapList({ properties, onPropertyClick, selectedPropertyI
                 <div
                   key={property.id}
                   onClick={() => onPropertyClick(property)}
-                  onMouseEnter={() => setHoveredId(property.id)}
-                  onMouseLeave={() => setHoveredId(null)}
+                  onMouseEnter={() => handleMouseEnter(property.id)}
+                  onMouseLeave={handleMouseLeave}
                   className={`p-4 cursor-pointer transition-colors ${
                     isSelected 
                       ? 'bg-blue-50 border-l-4 border-l-blue-600' 

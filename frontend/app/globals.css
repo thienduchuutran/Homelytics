@@ -6,6 +6,7 @@
   --foreground: #171717;
 }
 
+/* @theme is valid Tailwind CSS v4 syntax - linter warning can be ignored */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -181,5 +182,27 @@ body {
   .animate-fade-in,
   .animate-scale-in {
     animation: none;
+  }
+}
+
+/* Map Marker Hover Effect */
+.marker-hovered {
+  /* Pulse animation handled by inline transform, just add subtle glow */
+  animation: marker-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes marker-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marker-hovered {
+    animation: none;
+    opacity: 1 !important;
   }
 }
