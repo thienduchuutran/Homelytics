@@ -8,6 +8,7 @@ import FilterPanel from '@/components/FilterPanel';
 import FavoritesLink from '@/components/FavoritesLink';
 import PropertyQuickViewDrawer from '@/components/PropertyQuickViewDrawer';
 import Link from 'next/link';
+import { buildInsightsUrl } from '@/app/lib/parseFiltersFromQuery';
 
 export default function HousesPage() {
   const [houses, setHouses] = useState<House[]>([]);
@@ -315,6 +316,15 @@ export default function HousesPage() {
                 </svg>
                 Map
               </Link>
+              <Link
+                href="/insights"
+                className="inline-flex items-center gap-2 px-4 py-2 text-blue-600 hover:text-blue-700 font-medium rounded-lg hover:bg-blue-50 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                Insights
+              </Link>
               <button
                 onClick={() => window.dispatchEvent(new Event('pnc:open-chat'))}
                 className="inline-flex items-center gap-2 px-4 py-2 text-blue-600 hover:text-blue-700 font-medium rounded-lg hover:bg-blue-50 transition-colors"
@@ -377,11 +387,28 @@ export default function HousesPage() {
           </div>
         </div>
 
-        {/* Results Count */}
-        <div className="mb-6">
+        {/* Results Count and Insights Button */}
+        <div className="mb-6 flex items-center justify-between">
           <p className="text-gray-700">
             <span className="font-semibold">{filteredHouses.length}</span> properties found
           </p>
+          {filteredHouses.length > 0 && (
+            <Link
+              href={buildInsightsUrl({
+                city: null, // We don't have city in filters, but can add if needed
+                zip: null,
+                minPrice: filters.minPrice > 0 ? filters.minPrice : null,
+                maxPrice: filters.maxPrice < 10000000 ? filters.maxPrice : null,
+                bedrooms: filters.bedrooms,
+              })}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors text-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              See market insights for these filters
+            </Link>
+          )}
         </div>
 
         <div className="flex flex-col lg:flex-row gap-8">
