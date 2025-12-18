@@ -25,5 +25,4 @@ export interface FilterOptions {
   bedrooms: number | null;
   bathrooms: number | null;
   propertyType: string;
-  status: string;
 }

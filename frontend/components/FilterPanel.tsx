@@ -22,7 +22,6 @@ export default function FilterPanel({ filters, onFilterChange }: FilterPanelProp
       bedrooms: null,
       bathrooms: null,
       propertyType: 'all',
-      status: 'all',
     });
   };
 
@@ -138,21 +137,6 @@ export default function FilterPanel({ filters, onFilterChange }: FilterPanelProp
           </select>
         </div>
 
-        {/* Status */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-3">
-            Listing Status
-          </label>
-          <select
-            value={filters.status}
-            onChange={(e) => updateFilter('status', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="all">All</option>
-            <option value="for-sale">For Sale</option>
-            <option value="for-rent">For Rent</option>
-          </select>
-        </div>
       </div>
     </div>
   );

@@ -23,7 +23,6 @@ export default function HousesPage() {
     bedrooms: null,
     bathrooms: null,
     propertyType: 'all',
-    status: 'all',
   });
   const [sortBy, setSortBy] = useState<string>('newest');
   const [quickViewId, setQuickViewId] = useState<string | null>(null);
@@ -118,7 +117,6 @@ export default function HousesPage() {
         if (filters.bedrooms !== null) params.append('bedrooms', filters.bedrooms.toString());
         if (filters.bathrooms !== null) params.append('bathrooms', filters.bathrooms.toString());
         if (filters.propertyType !== 'all') params.append('propertyType', filters.propertyType);
-        if (filters.status !== 'all') params.append('status', filters.status);
         if (debouncedSearchTerm.trim()) params.append('search', debouncedSearchTerm.trim());
         // Add sorting parameters
         if (sortBy) params.append('sortBy', sortBy);
@@ -395,11 +393,13 @@ export default function HousesPage() {
           {filteredHouses.length > 0 && (
             <Link
               href={buildInsightsUrl({
-                city: null, // We don't have city in filters, but can add if needed
+                city: null,
                 zip: null,
                 minPrice: filters.minPrice > 0 ? filters.minPrice : null,
                 maxPrice: filters.maxPrice < 10000000 ? filters.maxPrice : null,
                 bedrooms: filters.bedrooms,
+                bathrooms: filters.bathrooms,
+                propertyType: filters.propertyType,
               })}
               className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors text-sm"
             >

@@ -84,7 +84,6 @@ export default function MapPage() {
       if (filters.minBaths > 0) params.append('minBaths', filters.minBaths.toString());
       if (filters.city) params.append('city', filters.city);
       if (filters.zip) params.append('zip', filters.zip);
-      params.append('status', 'for-sale');
 
       const response = await fetch(
         `https://titus-duc.calisearch.org/api/get_properties_bbox.php?${params.toString()}`,

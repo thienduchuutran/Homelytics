@@ -44,6 +44,8 @@ export default function InsightsPage() {
     minPrice: '',
     maxPrice: '',
     minBeds: '',
+    minBaths: '',
+    propertyType: 'all',
   });
   
   // Parse filters from URL on mount and when URL changes
@@ -59,6 +61,8 @@ export default function InsightsPage() {
       minPrice: parsedFilters.minPrice?.toString() || '',
       maxPrice: parsedFilters.maxPrice?.toString() || '',
       minBeds: parsedFilters.minBeds?.toString() || '',
+      minBaths: parsedFilters.minBaths?.toString() || '',
+      propertyType: parsedFilters.propertyType || 'all',
     });
   }, [parsedFilters]);
   
@@ -75,6 +79,8 @@ export default function InsightsPage() {
         if (parsedFilters.minPrice) params.append('minPrice', parsedFilters.minPrice.toString());
         if (parsedFilters.maxPrice) params.append('maxPrice', parsedFilters.maxPrice.toString());
         if (parsedFilters.minBeds) params.append('minBeds', parsedFilters.minBeds.toString());
+        if (parsedFilters.minBaths) params.append('minBaths', parsedFilters.minBaths.toString());
+        if (parsedFilters.propertyType && parsedFilters.propertyType !== 'all') params.append('propertyType', parsedFilters.propertyType);
         
         const baseUrl = 'https://titus-duc.calisearch.org/api';
         const queryString = params.toString() ? '?' + params.toString() : '';
@@ -132,6 +138,8 @@ export default function InsightsPage() {
     if (filters.minPrice.trim()) params.append('minPrice', filters.minPrice.trim());
     if (filters.maxPrice.trim()) params.append('maxPrice', filters.maxPrice.trim());
     if (filters.minBeds.trim()) params.append('minBeds', filters.minBeds.trim());
+    if (filters.minBaths.trim()) params.append('minBaths', filters.minBaths.trim());
+    if (filters.propertyType && filters.propertyType !== 'all') params.append('propertyType', filters.propertyType);
     
     router.push(`/insights${params.toString() ? '?' + params.toString() : ''}`);
   };
@@ -149,6 +157,24 @@ export default function InsightsPage() {
       else if (max) parts.push(`up to ${max}`);
     }
     if (parsedFilters.minBeds) parts.push(`${parsedFilters.minBeds}+ beds`);
+    if (parsedFilters.minBaths) parts.push(`${parsedFilters.minBaths}+ baths`);
+    if (parsedFilters.propertyType && parsedFilters.propertyType !== 'all') {
+      const typeLabels: Record<string, string> = {
+        'Residential': 'Residential',
+        'SingleFamilyResidence': 'Single Family',
+        'Condominium': 'Condominium',
+        'Townhouse': 'Townhouse',
+        'Duplex': 'Duplex',
+        'Triplex': 'Triplex',
+        'Cabin': 'Cabin',
+        'ManufacturedHome': 'Manufactured',
+        'ManufacturedOnLand': 'Manufactured on Land',
+        'MobileHome': 'Mobile',
+        'MixedUse': 'Mixed Use',
+        'StockCooperative': 'Stock Cooperative',
+      };
+      parts.push(typeLabels[parsedFilters.propertyType] || parsedFilters.propertyType);
+    }
     
     return parts.length > 0 ? parts.join(' • ') : 'All properties';
   }, [parsedFilters]);
@@ -252,58 +278,125 @@ export default function InsightsPage() {
         {/* Filter Form */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Apply Different Filters</h2>
-          <form onSubmit={handleFilterSubmit} className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <form onSubmit={handleFilterSubmit} className="space-y-6">
+            {/* Price Range */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
-              <input
-                type="text"
-                value={filters.city}
-                onChange={(e) => setFilters({ ...filters, city: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                placeholder="Any city"
-              />
+              <label className="block text-sm font-semibold text-gray-700 mb-3">Price Range</label>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Min Price</label>
+                  <input
+                    type="number"
+                    value={filters.minPrice}
+                    onChange={(e) => setFilters({ ...filters, minPrice: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Min"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Max Price</label>
+                  <input
+                    type="number"
+                    value={filters.maxPrice}
+                    onChange={(e) => setFilters({ ...filters, maxPrice: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Max"
+                  />
+                </div>
+              </div>
             </div>
+
+            {/* Bedrooms */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">ZIP</label>
-              <input
-                type="text"
-                value={filters.zip}
-                onChange={(e) => setFilters({ ...filters, zip: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                placeholder="Any ZIP"
-              />
+              <label className="block text-sm font-semibold text-gray-700 mb-3">Bedrooms</label>
+              <div className="flex gap-2 flex-wrap">
+                {[null, 1, 2, 3, 4, 5].map((num) => (
+                  <button
+                    key={num?.toString() || 'any'}
+                    type="button"
+                    onClick={() => setFilters({ ...filters, minBeds: num === null ? '' : num.toString() })}
+                    className={`px-4 py-2 rounded-md font-medium transition-colors ${
+                      (num === null && filters.minBeds === '') || filters.minBeds === num?.toString()
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {num === null ? 'Any' : `${num}+`}
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {/* Bathrooms */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Min Price</label>
-              <input
-                type="number"
-                value={filters.minPrice}
-                onChange={(e) => setFilters({ ...filters, minPrice: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                placeholder="0"
-              />
+              <label className="block text-sm font-semibold text-gray-700 mb-3">Bathrooms</label>
+              <div className="flex gap-2 flex-wrap">
+                {[null, 1, 2, 3, 4].map((num) => (
+                  <button
+                    key={num?.toString() || 'any'}
+                    type="button"
+                    onClick={() => setFilters({ ...filters, minBaths: num === null ? '' : num.toString() })}
+                    className={`px-4 py-2 rounded-md font-medium transition-colors ${
+                      (num === null && filters.minBaths === '') || filters.minBaths === num?.toString()
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {num === null ? 'Any' : `${num}+`}
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {/* Property Type */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Max Price</label>
-              <input
-                type="number"
-                value={filters.maxPrice}
-                onChange={(e) => setFilters({ ...filters, maxPrice: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                placeholder="No limit"
-              />
+              <label className="block text-sm font-semibold text-gray-700 mb-3">Property Type</label>
+              <select
+                value={filters.propertyType}
+                onChange={(e) => setFilters({ ...filters, propertyType: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Types</option>
+                <option value="Residential">Residential</option>
+                <option value="SingleFamilyResidence">Single Family Residence</option>
+                <option value="Condominium">Condominium</option>
+                <option value="Townhouse">Townhouse</option>
+                <option value="Duplex">Duplex</option>
+                <option value="Triplex">Triplex</option>
+                <option value="Cabin">Cabin</option>
+                <option value="ManufacturedHome">Manufactured Home</option>
+                <option value="ManufacturedOnLand">Manufactured On Land</option>
+                <option value="MobileHome">Mobile Home</option>
+                <option value="MixedUse">Mixed Use</option>
+                <option value="StockCooperative">Stock Cooperative</option>
+              </select>
             </div>
+
+            {/* City and ZIP (optional additional filters) */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-3">City (Optional)</label>
+                <input
+                  type="text"
+                  value={filters.city}
+                  onChange={(e) => setFilters({ ...filters, city: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Any city"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-3">ZIP (Optional)</label>
+                <input
+                  type="text"
+                  value={filters.zip}
+                  onChange={(e) => setFilters({ ...filters, zip: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Any ZIP"
+                />
+              </div>
+            </div>
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Min Beds</label>
-              <input
-                type="number"
-                value={filters.minBeds}
-                onChange={(e) => setFilters({ ...filters, minBeds: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                placeholder="0"
-              />
-            </div>
-            <div className="md:col-span-5">
               <button
                 type="submit"
                 className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"

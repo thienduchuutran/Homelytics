@@ -63,6 +63,8 @@ $zip = isset($_GET['zip']) && $_GET['zip'] !== '' ? trim($_GET['zip']) : null;
 $minPrice = isset($_GET['minPrice']) && $_GET['minPrice'] !== '' ? max(0, (int)$_GET['minPrice']) : null;
 $maxPrice = isset($_GET['maxPrice']) && $_GET['maxPrice'] !== '' ? max(0, (int)$_GET['maxPrice']) : null;
 $minBeds = isset($_GET['minBeds']) && $_GET['minBeds'] !== '' ? max(0, (int)$_GET['minBeds']) : null;
+$minBaths = isset($_GET['minBaths']) && $_GET['minBaths'] !== '' ? max(0, (float)$_GET['minBaths']) : null;
+$propertyType = isset($_GET['propertyType']) && $_GET['propertyType'] !== 'all' ? trim($_GET['propertyType']) : null;
 
 // ---- Build WHERE clause
 $where = ['1=1'];
@@ -91,6 +93,19 @@ if ($maxPrice !== null && $maxPrice > 0) {
 if ($minBeds !== null && $minBeds > 0) {
     $where[] = 'L_Keyword2 >= :minBeds';
     $params[':minBeds'] = $minBeds;
+}
+if ($minBaths !== null && $minBaths > 0) {
+    $where[] = 'LM_Dec_3 >= :minBaths';
+    $params[':minBaths'] = $minBaths;
+}
+if ($propertyType !== null) {
+    // "Residential" is stored in L_Class, all other types are in L_Type_
+    if ($propertyType === 'Residential') {
+        $where[] = 'TRIM(L_Class) = TRIM(:propertyType)';
+    } else {
+        $where[] = 'TRIM(L_Type_) = TRIM(:propertyType)';
+    }
+    $params[':propertyType'] = $propertyType;
 }
 
 $whereClause = implode(' AND ', $where);
