@@ -4,6 +4,7 @@ import { useState, useMemo, useRef } from 'react';
 import { useFavorites, Favorite } from '@/app/lib/useFavorites';
 import Image from 'next/image';
 import Link from 'next/link';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 type SortOption = 'newest' | 'oldest' | 'price-low' | 'price-high';
 
@@ -16,6 +17,10 @@ export default function FavoritesPage() {
   const [editingNote, setEditingNote] = useState<{ id: string; note: string } | null>(null);
   const [newTagInputs, setNewTagInputs] = useState<Record<string, string>>({});
   const [importMessage, setImportMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; id: string | null; propertyAddress?: string }>({
+    open: false,
+    id: null,
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filteredAndSorted = useMemo(() => {
@@ -62,33 +67,51 @@ export default function FavoritesPage() {
     return `$${price.toLocaleString()}`;
   };
 
-  const handleRemove = (e: React.MouseEvent, id: string) => {
+  const handleRemove = (e: React.MouseEvent, id: string, propertyAddress?: string) => {
     e.preventDefault();
     e.stopPropagation();
-    if (confirm('Remove this property from favorites?')) {
-      remove(id);
+    setDeleteConfirm({
+      open: true,
+      id,
+      propertyAddress,
+    });
+  };
+
+  const confirmRemove = () => {
+    if (deleteConfirm.id) {
+      remove(deleteConfirm.id);
       // Remove from compare selection if selected
-      if (selectedForCompare.has(id)) {
+      if (selectedForCompare.has(deleteConfirm.id)) {
         setSelectedForCompare(prev => {
           const next = new Set(prev);
-          next.delete(id);
+          next.delete(deleteConfirm.id!);
           return next;
         });
       }
+      setDeleteConfirm({ open: false, id: null });
     }
   };
+
+  const cancelRemove = () => {
+    setDeleteConfirm({ open: false, id: null });
+  };
+
+  const [compareLimitMessage, setCompareLimitMessage] = useState(false);
 
   const handleCompareToggle = (id: string) => {
     setSelectedForCompare(prev => {
       const next = new Set(prev);
       if (next.has(id)) {
         next.delete(id);
+        setCompareLimitMessage(false);
       } else {
         if (next.size >= 3) {
-          alert('You can compare up to 3 properties at once');
+          setCompareLimitMessage(true);
+          setTimeout(() => setCompareLimitMessage(false), 3000);
           return prev;
         }
         next.add(id);
+        setCompareLimitMessage(false);
       }
       return next;
     });
@@ -228,34 +251,32 @@ export default function FavoritesPage() {
             </div>
             <div className="flex items-center gap-4">
               {favorites.length > 0 && (
-                <>
-                  <button
-                    onClick={handleExport}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    Export
-                  </button>
-                  <button
-                    onClick={handleImport}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                    </svg>
-                    Import
-                  </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".json"
-                    onChange={handleFileChange}
-                    className="hidden"
-                  />
-                </>
+                <button
+                  onClick={handleExport}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Export
+                </button>
               )}
+              <button
+                onClick={handleImport}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                Import
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json"
+                onChange={handleFileChange}
+                className="hidden"
+              />
               <Link
                 href="/map"
                 className="inline-flex items-center gap-2 px-4 py-2 text-blue-600 hover:text-blue-700 font-medium rounded-lg hover:bg-blue-50 transition-colors"
@@ -281,13 +302,62 @@ export default function FavoritesPage() {
 
       {/* Import Message */}
       {importMessage && (
-        <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4`}>
-          <div className={`p-4 rounded-lg ${
-            importMessage.type === 'success' 
-              ? 'bg-green-50 text-green-800 border border-green-200' 
-              : 'bg-red-50 text-red-800 border border-red-200'
-          }`}>
-            {importMessage.text}
+        <div className={`fixed top-20 right-4 z-50 p-4 rounded-lg shadow-lg max-w-sm animate-slide-in ${
+          importMessage.type === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+        }`}>
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              {importMessage.type === 'success' ? (
+                <svg className="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              ) : (
+                <svg className="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              )}
+            </div>
+            <div className="ml-3 flex-1">
+              <p className={`text-sm font-medium ${
+                importMessage.type === 'success' ? 'text-green-800' : 'text-red-800'
+              }`}>
+                {importMessage.text}
+              </p>
+            </div>
+            <button
+              onClick={() => setImportMessage(null)}
+              className="ml-4 flex-shrink-0 text-gray-400 hover:text-gray-500"
+            >
+              <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Compare Limit Message */}
+      {compareLimitMessage && (
+        <div className="fixed top-20 right-4 z-50 p-4 rounded-lg shadow-lg max-w-sm bg-amber-50 border border-amber-200 animate-slide-in">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3 flex-1">
+              <p className="text-sm font-medium text-amber-800">
+                You can compare up to 3 properties at once
+              </p>
+            </div>
+            <button
+              onClick={() => setCompareLimitMessage(false)}
+              className="ml-4 flex-shrink-0 text-amber-400 hover:text-amber-500"
+            >
+              <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
           </div>
         </div>
       )}
@@ -537,7 +607,7 @@ export default function FavoritesPage() {
                       </p>
                     </div>
                     <button
-                      onClick={(e) => handleRemove(e, favorite.id)}
+                      onClick={(e) => handleRemove(e, favorite.id, favorite.snapshot.address)}
                       className="ml-2 p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors"
                       title="Remove from favorites"
                       aria-label="Remove from favorites"
@@ -693,6 +763,22 @@ export default function FavoritesPage() {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteConfirm.open}
+        title="Remove from Favorites?"
+        message={
+          deleteConfirm.propertyAddress
+            ? `Are you sure you want to remove "${deleteConfirm.propertyAddress}" from your favorites? This action cannot be undone.`
+            : 'Are you sure you want to remove this property from your favorites? This action cannot be undone.'
+        }
+        confirmText="Remove"
+        cancelText="Cancel"
+        onConfirm={confirmRemove}
+        onCancel={cancelRemove}
+        variant="danger"
+      />
     </div>
   );
 }
