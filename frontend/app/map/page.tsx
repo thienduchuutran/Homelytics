@@ -135,10 +135,13 @@ export default function MapPage() {
     setQuickViewId(property.id);
   }, []);
 
-  // Initial fetch when component mounts (will be triggered by map initialization)
+  // Re-fetch when filters change (if we have current bounds)
   useEffect(() => {
-    // Map will trigger initial bounds change
-  }, []);
+    if (currentBounds) {
+      fetchProperties(currentBounds);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters]); // Only re-fetch when filters change, not when fetchProperties changes
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col" style={{ height: '100vh', overflow: 'hidden' }}>
