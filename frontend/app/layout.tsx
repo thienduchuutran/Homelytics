@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Suspense } from "react";
 import "./globals.css";
 import PageTransition from "@/components/PageTransition";
 import ChatWidget from "@/components/chat/ChatWidget";
@@ -29,9 +30,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <PageTransition>
-          {children}
-        </PageTransition>
+        <Suspense fallback={children}>
+          <PageTransition>
+            {children}
+          </PageTransition>
+        </Suspense>
         <ChatWidget />
       </body>
     </html>

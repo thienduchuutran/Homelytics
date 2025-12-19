@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "dev:php": "php -S localhost:8000 -t .",
-    "build": "next build --turbopack",
+    "build": "next build",
     "start": "next start",
     "export": "next export",
     "lint": "eslint"

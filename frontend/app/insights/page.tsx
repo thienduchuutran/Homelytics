@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { parseFiltersFromQuery } from '@/app/lib/parseFiltersFromQuery';
@@ -27,7 +27,7 @@ interface HistogramBucket {
   count: number;
 }
 
-export default function InsightsPage() {
+function InsightsPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   
@@ -599,6 +599,21 @@ export default function InsightsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function InsightsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    }>
+      <InsightsPageContent />
+    </Suspense>
   );
 }
 
