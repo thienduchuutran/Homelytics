@@ -128,7 +128,6 @@ export default function HousesPage() {
         
         let response: Response;
         try {
-          console.log('Attempting to fetch from:', apiUrl);
           response = await fetch(apiUrl, {
             method: 'GET',
             headers: {
@@ -234,24 +233,6 @@ export default function HousesPage() {
           }
           
           data = JSON.parse(text);
-          // ALWAYS log what we got - this will show in console
-          console.log('=== API RESPONSE DEBUG ===');
-          console.log('Full response:', data);
-          console.log('Is array?', Array.isArray(data));
-          console.log('Has _debug?', data && typeof data === 'object' && '_debug' in data);
-          console.log('Has data property?', data && typeof data === 'object' && 'data' in data);
-          if (data && typeof data === 'object' && '_debug' in data) {
-            console.log('DEBUG OBJECT:', data._debug);
-          }
-          if (Array.isArray(data) && data.length > 0) {
-            console.log('First item price:', data[0].price);
-            console.log('Last item price:', data[data.length - 1].price);
-          }
-          if (data && typeof data === 'object' && 'data' in data && Array.isArray(data.data)) {
-            console.log('First item price (from data.data):', data.data[0]?.price);
-            console.log('Last item price (from data.data):', data.data[data.data.length - 1]?.price);
-          }
-          console.log('=== END DEBUG ===');
         } catch (parseError) {
           console.error('JSON parse error:', parseError);
           throw new Error(
@@ -267,9 +248,6 @@ export default function HousesPage() {
         
         // Handle debug response format (temporary - for debugging sorting)
         if (data && typeof data === 'object' && 'data' in data && '_debug' in data) {
-          console.log('🔍 Debug info from API:', data._debug);
-          console.log('First property price:', data.data[0]?.price);
-          console.log('Last property price:', data.data[data.data.length - 1]?.price);
           setHouses(data.data);
           return;
         }
