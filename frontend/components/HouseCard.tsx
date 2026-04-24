@@ -56,6 +56,7 @@ export default function HouseCard({ house, onQuickView }: HouseCardProps) {
           fill
           className="object-cover"
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          referrerPolicy="no-referrer"
         />
         <div className="absolute top-4 right-4 flex items-center gap-2">
           <FavoriteButton

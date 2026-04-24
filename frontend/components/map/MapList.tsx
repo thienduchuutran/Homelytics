@@ -104,9 +104,10 @@ export default function MapList({ properties, onPropertyClick, selectedPropertyI
                     {/* Image */}
                     <div className="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden bg-gray-200">
                       <img
-                        src={property.photo}
+                        src={property.photo?.replace(/^http:\/\//i, 'https://')}
                         alt={property.address}
                         className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
                         onError={(e) => {
                           (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800';
                         }}

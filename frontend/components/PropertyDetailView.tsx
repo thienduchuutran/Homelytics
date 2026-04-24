@@ -391,6 +391,7 @@ export default function PropertyDetailView({ propertyId, showHeader = true, show
               className="object-cover"
               priority
               sizes="100vw"
+              referrerPolicy="no-referrer"
             />
             {images.length > 1 && (
               <>
@@ -436,6 +437,7 @@ export default function PropertyDetailView({ propertyId, showHeader = true, show
                     fill
                     className="object-cover"
                     sizes="(max-width: 768px) 16vw, 10vw"
+                    referrerPolicy="no-referrer"
                   />
                 </button>
               ))}
