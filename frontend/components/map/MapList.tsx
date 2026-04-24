@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 interface MapProperty {
   id: string;
@@ -27,8 +27,60 @@ interface MapListProps {
   onPropertyHover?: (propertyId: string | null) => void;
 }
 
+// Compact price formatting: $210k, $875k, $2.4M
+// Listing prices span a huge range, so a fixed $XXX,XXX format eats horizontal
+// space in the narrow sidebar. Compact form keeps the stats strip scannable.
+function formatCompactPrice(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return '—';
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000) {
+    const m = value / 1_000_000;
+    // Show one decimal for values like $2.4M, but drop it for clean millions ($3M not $3.0M)
+    return `$${m % 1 === 0 ? m.toFixed(0) : m.toFixed(1)}M`;
+  }
+  if (abs >= 1_000) return `$${Math.round(value / 1_000)}k`;
+  return `$${Math.round(value)}`;
+}
+
+// Median is more representative than mean for price distributions — one
+// $20M listing shouldn't drag the "typical" price upward.
+function median(values: number[]): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+}
+
 export default function MapList({ properties, onPropertyClick, selectedPropertyId, isLoading, onPropertyHover }: MapListProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+
+  // Recomputes whenever the viewport's property set changes — e.g. as the
+  // user pans from Beverly Hills to East LA, these numbers update live.
+  const stats = useMemo(() => {
+    if (properties.length === 0) {
+      return { count: 0, medianPrice: null as number | null, avgBeds: null as number | null, minPrice: null as number | null, maxPrice: null as number | null };
+    }
+    const prices: number[] = [];
+    const beds: number[] = [];
+    let min = Infinity;
+    let max = -Infinity;
+    for (const p of properties) {
+      if (Number.isFinite(p.price) && p.price > 0) {
+        prices.push(p.price);
+        if (p.price < min) min = p.price;
+        if (p.price > max) max = p.price;
+      }
+      if (Number.isFinite(p.beds) && p.beds > 0) beds.push(p.beds);
+    }
+    const avgBeds = beds.length > 0 ? beds.reduce((sum, b) => sum + b, 0) / beds.length : null;
+    return {
+      count: properties.length,
+      medianPrice: median(prices),
+      avgBeds,
+      minPrice: min === Infinity ? null : min,
+      maxPrice: max === -Infinity ? null : max,
+    };
+  }, [properties]);
 
   const handleMouseEnter = (propertyId: string) => {
     setHoveredId(propertyId);
@@ -43,9 +95,29 @@ export default function MapList({ properties, onPropertyClick, selectedPropertyI
   if (isLoading) {
     return (
       <div className="h-full flex flex-col">
-        <div className="p-4 border-b border-gray-200 bg-white">
-          <h2 className="text-lg font-semibold text-gray-900">Properties</h2>
-          <p className="text-sm text-gray-500 mt-1">Loading...</p>
+        <div className="border-b border-gray-200 bg-white flex-shrink-0">
+          <div className="px-4 pt-4 pb-3">
+            <div className="flex items-baseline gap-2">
+              <div className="skeleton h-7 w-10 rounded"></div>
+              <span className="text-sm text-gray-400">properties in view</span>
+            </div>
+          </div>
+          <div className="px-4 pb-3 border-t border-gray-100 pt-3">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-400">Median</span>
+                <div className="skeleton h-3 w-12 rounded"></div>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-400">Avg</span>
+                <div className="skeleton h-3 w-10 rounded"></div>
+              </div>
+              <div className="col-span-2 flex items-center justify-between">
+                <span className="text-gray-400">Range</span>
+                <div className="skeleton h-3 w-24 rounded"></div>
+              </div>
+            </div>
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {[...Array(5)].map((_, i) => (
@@ -60,14 +132,48 @@ export default function MapList({ properties, onPropertyClick, selectedPropertyI
     );
   }
 
+  const hasStats = stats.count > 0 && stats.medianPrice !== null;
+
   return (
     <div className="h-full flex flex-col bg-white">
-      {/* Header */}
-      <div className="p-4 border-b border-gray-200 bg-white flex-shrink-0">
-        <h2 className="text-lg font-semibold text-gray-900">Properties</h2>
-        <p className="text-sm text-gray-500 mt-1">
-          Showing {properties.length} {properties.length === 1 ? 'home' : 'homes'} in view
-        </p>
+      {/* Header + live stats strip */}
+      <div className="border-b border-gray-200 bg-white flex-shrink-0">
+        <div className="px-4 pt-4 pb-3">
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-bold text-gray-900 tabular-nums">
+              {stats.count.toLocaleString()}
+            </span>
+            <span className="text-sm text-gray-600">
+              {stats.count === 1 ? 'property' : 'properties'} in view
+            </span>
+          </div>
+        </div>
+        {hasStats && (
+          <div className="px-4 pb-3 border-t border-gray-100 pt-3">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-500">Median</span>
+                <span className="font-semibold text-gray-900 tabular-nums">
+                  {formatCompactPrice(stats.medianPrice as number)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-500">Avg</span>
+                <span className="font-semibold text-gray-900 tabular-nums">
+                  {stats.avgBeds !== null ? `${stats.avgBeds.toFixed(1)} bd` : '—'}
+                </span>
+              </div>
+              <div className="col-span-2 flex items-center justify-between">
+                <span className="text-gray-500">Range</span>
+                <span className="font-semibold text-gray-900 tabular-nums">
+                  {stats.minPrice !== null && stats.maxPrice !== null
+                    ? `${formatCompactPrice(stats.minPrice)} – ${formatCompactPrice(stats.maxPrice)}`
+                    : '—'}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* List */}
