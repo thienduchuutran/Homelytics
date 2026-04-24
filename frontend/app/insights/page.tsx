@@ -7,6 +7,7 @@ import { parseFiltersFromQuery } from '@/app/lib/parseFiltersFromQuery';
 import FavoritesLink from '@/components/FavoritesLink';
 import ZipMedianBarChart from '@/components/ZipMedianBarChart';
 import PriceHistogramChart from '@/components/PriceHistogramChart';
+import InsightsKpiCards, { type TrendPoint } from '@/components/InsightsKpiCards';
 
 interface InsightsSummary {
   count: number;
@@ -36,6 +37,7 @@ function InsightsPageContent() {
   const [summary, setSummary] = useState<InsightsSummary | null>(null);
   const [zipData, setZipData] = useState<ZipData[]>([]);
   const [histogram, setHistogram] = useState<HistogramBucket[]>([]);
+  const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -87,23 +89,22 @@ function InsightsPageContent() {
         const baseUrl = 'https://titus-duc.calisearch.org/api';
         const queryString = params.toString() ? '?' + params.toString() : '';
         
-        // Fetch all three endpoints in parallel
-        const [summaryRes, zipRes, histRes] = await Promise.all([
-          fetch(`${baseUrl}/insights_summary.php${queryString}`, {
-            headers: { 'Accept': 'application/json' },
-            mode: 'cors',
-            credentials: 'omit',
-          }),
-          fetch(`${baseUrl}/insights_median_by_zip.php${queryString}`, {
-            headers: { 'Accept': 'application/json' },
-            mode: 'cors',
-            credentials: 'omit',
-          }),
-          fetch(`${baseUrl}/insights_price_histogram.php${queryString}`, {
-            headers: { 'Accept': 'application/json' },
-            mode: 'cors',
-            credentials: 'omit',
-          }),
+        const fetchOpts: RequestInit = {
+          headers: { 'Accept': 'application/json' },
+          mode: 'cors',
+          credentials: 'omit',
+        };
+
+        // Fetch core insights endpoints in parallel. Trend lives alongside
+        // them but is non-fatal — if the trend endpoint isn't deployed yet,
+        // or simply returns no data, we degrade gracefully to a KPI card
+        // without a sparkline rather than failing the whole page.
+        const [summaryRes, zipRes, histRes, trendRes] = await Promise.all([
+          fetch(`${baseUrl}/insights_summary.php${queryString}`, fetchOpts),
+          fetch(`${baseUrl}/insights_median_by_zip.php${queryString}`, fetchOpts),
+          fetch(`${baseUrl}/insights_price_histogram.php${queryString}`, fetchOpts),
+          fetch(`${baseUrl}/insights_price_trend.php${queryString}`, fetchOpts)
+            .catch(() => null),
         ]);
         
         if (!summaryRes.ok || !zipRes.ok || !histRes.ok) {
@@ -119,6 +120,20 @@ function InsightsPageContent() {
         setSummary(summaryData);
         setZipData(Array.isArray(zipData) ? zipData : []);
         setHistogram(Array.isArray(histData) ? histData : []);
+
+        // Trend is optional: 404 / network failure / bad JSON all just mean
+        // "no sparkline this render".
+        if (trendRes && trendRes.ok) {
+          try {
+            const trendJson = await trendRes.json();
+            const arr = Array.isArray(trendJson?.trend) ? trendJson.trend : [];
+            setTrend(arr as TrendPoint[]);
+          } catch {
+            setTrend([]);
+          }
+        } else {
+          setTrend([]);
+        }
       } catch (err) {
         console.error('Error fetching insights:', err);
         setError(err instanceof Error ? err.message : 'Failed to load insights');
@@ -181,51 +196,22 @@ function InsightsPageContent() {
     return parts.length > 0 ? parts.join(' • ') : 'All properties';
   }, [parsedFilters]);
   
-  // Generate insights callouts
-  const insights = useMemo(() => {
-    const callouts: string[] = [];
-    
-    if (summary && summary.count > 0) {
-      // Price range insight
-      if (histogram.length > 0) {
-        const maxBucket = histogram.reduce((max, b) => b.count > max.count ? b : max, histogram[0]);
-        if (maxBucket.count > 0) {
-          const min = (maxBucket.bucketMin / 1000).toFixed(0);
-          const max = (maxBucket.bucketMax / 1000).toFixed(0);
-          callouts.push(`Most listings fall in $${min}k–$${max}k`);
-        }
-      }
-      
-      // ZIP insight
-      if (zipData.length > 0 && summary.medianPricePerSqft) {
-        const lowestPpsfZip = zipData
-          .filter(z => z.medianPricePerSqft !== null)
-          .sort((a, b) => (a.medianPricePerSqft || 0) - (b.medianPricePerSqft || 0))[0];
-        
-        if (lowestPpsfZip && lowestPpsfZip.medianPricePerSqft && lowestPpsfZip.medianPricePerSqft < summary.medianPricePerSqft!) {
-          callouts.push(`ZIP ${lowestPpsfZip.zip} has the lowest median $/sqft ($${lowestPpsfZip.medianPricePerSqft.toFixed(0)}) among the selected area`);
-        }
-      }
-      
-      // DOM insight
-      if (summary.avgDom !== null && summary.avgDom > 0) {
-        callouts.push(`Listings in this selection average ${Math.round(summary.avgDom)} days on market`);
-      }
+  // Best-value ZIP: the filtered ZIP with the lowest median $/sqft, only
+  // returned when it actually beats the overall median $/sqft (otherwise the
+  // "best value" framing is trivially true and not worth the pixels).
+  const bestValueZip = useMemo(() => {
+    const overall = summary?.medianPricePerSqft;
+    if (overall === null || overall === undefined || !Number.isFinite(overall)) {
+      return null;
     }
-    
-    return callouts;
-  }, [summary, zipData, histogram]);
-  
-  // Format currency
-  const formatCurrency = (value: number | null) => {
-    if (value === null) return 'N/A';
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
+    const candidates = zipData
+      .filter((z) => z.medianPricePerSqft !== null && Number.isFinite(z.medianPricePerSqft as number))
+      .sort((a, b) => (a.medianPricePerSqft || 0) - (b.medianPricePerSqft || 0));
+    const low = candidates[0];
+    if (!low || low.medianPricePerSqft === null) return null;
+    if (low.medianPricePerSqft >= overall) return null;
+    return { zip: low.zip, pricePerSqft: low.medianPricePerSqft };
+  }, [zipData, summary?.medianPricePerSqft]);
   
   return (
     <div className="min-h-screen bg-gray-50">
@@ -430,47 +416,20 @@ function InsightsPageContent() {
           </div>
         ) : summary && summary.count > 0 ? (
           <>
-            {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h3 className="text-sm font-medium text-gray-500 mb-2">Median List Price</h3>
-                <p className="text-3xl font-bold text-gray-900">{formatCurrency(summary.medianPrice)}</p>
-              </div>
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h3 className="text-sm font-medium text-gray-500 mb-2">Median $/sqft</h3>
-                <p className="text-3xl font-bold text-gray-900">
-                  {summary.medianPricePerSqft ? `$${summary.medianPricePerSqft.toFixed(0)}` : 'N/A'}
-                </p>
-              </div>
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h3 className="text-sm font-medium text-gray-500 mb-2">Average Beds</h3>
-                <p className="text-3xl font-bold text-gray-900">
-                  {summary.avgBeds ? summary.avgBeds.toFixed(1) : 'N/A'}
-                </p>
-              </div>
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h3 className="text-sm font-medium text-gray-500 mb-2">Listing Count</h3>
-                <p className="text-3xl font-bold text-gray-900">{summary.count.toLocaleString()}</p>
-              </div>
-            </div>
-            
-            {/* Insight Callouts */}
-            {insights.length > 0 && (
-              <div className="bg-blue-50 border-l-4 border-blue-400 p-6 mb-8 rounded-lg">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Key Insights</h3>
-                <ul className="space-y-2">
-                  {insights.map((insight, idx) => (
-                    <li key={idx} className="flex items-start">
-                      <svg className="w-5 h-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <span className="text-gray-700">{insight}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            
+            {/* KPI cards — four short stories about this slice of the market:
+                median price + its 6-month trajectory, volume + velocity,
+                $/sqft + best-value ZIP, and the market's pace in days. */}
+            <InsightsKpiCards
+              data={{
+                count: summary.count,
+                medianPrice: summary.medianPrice,
+                medianPricePerSqft: summary.medianPricePerSqft,
+                avgDom: summary.avgDom,
+                trend,
+                bestValueZip,
+              }}
+            />
+
             {/* Median Price by ZIP — full-width small-multiples chart */}
             <div className="bg-white rounded-lg shadow-md p-6 mb-8">
               <ZipMedianBarChart
@@ -487,41 +446,6 @@ function InsightsPageContent() {
                 medianPrice={summary?.medianPrice ?? null}
                 subtitle="Listings grouped into $50k price buckets. The dashed line marks the bucket containing the market median."
               />
-            </div>
-            
-            {/* Average $/bedroom by ZIP */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Average $/sqft by ZIP</h3>
-              {zipData.length > 0 ? (
-                <div className="space-y-3">
-                  {zipData
-                    .filter(z => z.medianPricePerSqft !== null)
-                    .sort((a, b) => (b.medianPricePerSqft || 0) - (a.medianPricePerSqft || 0))
-                    .map((zip) => (
-                      <div key={zip.zip} className="flex items-center gap-4">
-                        <div className="w-20 text-sm font-medium text-gray-700">{zip.zip}</div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="bg-purple-600 h-8 rounded flex items-center justify-end pr-2"
-                              style={{
-                                width: `${((zip.medianPricePerSqft || 0) / Math.max(...zipData.filter(z => z.medianPricePerSqft !== null).map(z => z.medianPricePerSqft || 0))) * 100}%`,
-                                minWidth: '40px',
-                              }}
-                            >
-                              <span className="text-white text-xs font-medium">
-                                ${zip.medianPricePerSqft?.toFixed(0)}
-                              </span>
-                            </div>
-                            <span className="text-sm text-gray-500">({zip.count})</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              ) : (
-                <p className="text-gray-500">No ZIP data available</p>
-              )}
             </div>
           </>
         ) : (
