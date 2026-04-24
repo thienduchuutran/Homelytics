@@ -241,7 +241,8 @@ function mapPropertyToDetail(array $row): array {
     if (!empty($row['L_Photos'])) {
         $photos = json_decode($row['L_Photos'], true);
         if (is_array($photos) && !empty($photos)) {
-            $images = $photos;
+            // Force HTTPS on all image URLs (browsers block HTTP on HTTPS pages)
+            $images = array_map(fn($url) => str_replace('http://', 'https://', $url), $photos);
         }
     }
     
