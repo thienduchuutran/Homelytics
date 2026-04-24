@@ -1,11 +1,15 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import FavoritesLink from '@/components/FavoritesLink';
 import PropertyQuickViewDrawer from '@/components/PropertyQuickViewDrawer';
 import MapList from '@/components/map/MapList';
+
+// Shared between the list pagination and the map render so both stay in sync.
+// Defined here (not in MapList) because the map needs to render the same slice.
+const PAGE_SIZE = 15;
 
 // Dynamically import MapView to avoid SSR issues with Leaflet
 const MapView = dynamic(() => import('@/components/map/MapView'), { ssr: false });
@@ -43,6 +47,34 @@ export default function MapPage() {
   const [quickViewId, setQuickViewId] = useState<string | null>(null);
   const [currentBounds, setCurrentBounds] = useState<MapBounds | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Derived pagination — the 15-item slice is shared by the list AND the map
+  // so that paging through the sidebar also filters the pins.
+  const totalPages = Math.max(1, Math.ceil(properties.length / PAGE_SIZE));
+  const pageStart = (currentPage - 1) * PAGE_SIZE;
+  const pageEnd = Math.min(pageStart + PAGE_SIZE, properties.length);
+  const pagedProperties = useMemo(
+    () => properties.slice(pageStart, pageEnd),
+    [properties, pageStart, pageEnd],
+  );
+
+  // Reset to page 1 whenever the underlying property set changes (new bounds,
+  // new filter result) so we don't land on "page 5 of 3" after a pan.
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [properties]);
+
+  // If selection moves to a property that isn't on the current page (e.g. from
+  // a deep-link or a programmatic select), jump the pagination to it so its
+  // marker and list row are both visible.
+  useEffect(() => {
+    if (!selectedPropertyId) return;
+    const idx = properties.findIndex(p => p.id === selectedPropertyId);
+    if (idx < 0) return;
+    const targetPage = Math.floor(idx / PAGE_SIZE) + 1;
+    setCurrentPage(prev => (prev === targetPage ? prev : targetPage));
+  }, [selectedPropertyId, properties]);
   
   // Simple filters (minimal implementation)
   const [filters, setFilters] = useState({
@@ -75,7 +107,7 @@ export default function MapPage() {
       params.append('maxLat', bounds.maxLat.toString());
       params.append('minLng', bounds.minLng.toString());
       params.append('maxLng', bounds.maxLng.toString());
-      params.append('limit', '200');
+      params.append('limit', '300');
 
       // Add optional filters
       if (filters.minPrice > 0) params.append('minPrice', filters.minPrice.toString());
@@ -253,7 +285,7 @@ export default function MapPage() {
           style={{ touchAction: 'pan-x pan-y pinch-zoom' }}
         >
           <MapView
-            properties={properties}
+            properties={pagedProperties}
             onMarkerClick={handlePropertyClick}
             onBoundsChange={handleBoundsChange}
             selectedPropertyId={selectedPropertyId}
@@ -267,6 +299,12 @@ export default function MapPage() {
         >
           <MapList
             properties={properties}
+            pagedProperties={pagedProperties}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageStart={pageStart}
+            pageEnd={pageEnd}
+            onPageChange={setCurrentPage}
             onPropertyClick={handlePropertyClick}
             selectedPropertyId={selectedPropertyId}
             isLoading={loading}

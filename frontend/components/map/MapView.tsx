@@ -112,8 +112,6 @@ export default function MapView({ properties, onMarkerClick, onBoundsChange, sel
   const legendRef = useRef<L.Control | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isMapReady, setIsMapReady] = useState(false);
-  const hasInitialFitRef = useRef(false);
-  const previousPropertiesLengthRef = useRef(0);
 
   // Mirror props into refs so leaflet event handlers (which outlive React renders)
   // always see the latest selection/hover state.
@@ -128,7 +126,9 @@ export default function MapView({ properties, onMarkerClick, onBoundsChange, sel
 
     const map = L.map(containerRef.current, {
       center: [34.0522, -118.2437], // Los Angeles, CA
-      zoom: 10,
+      // Start at neighborhood zoom (≈12) rather than full-metro (10) so the first
+      // paint isn't 300+ pins stacked on top of each other.
+      zoom: 12,
       zoomControl: true,
     });
 
@@ -278,23 +278,10 @@ export default function MapView({ properties, onMarkerClick, onBoundsChange, sel
       }
     });
 
-    // Only fit bounds on initial load (when properties first appear or significantly change)
-    // Don't reset view when properties update due to pan/zoom
-    const isInitialLoad = !hasInitialFitRef.current && properties.length > 0;
-    const isSignificantChange = Math.abs(properties.length - previousPropertiesLengthRef.current) > properties.length * 0.5;
-
-    if (isInitialLoad || (isSignificantChange && !hasInitialFitRef.current)) {
-      const group = new L.FeatureGroup(markersRef.current);
-      if (markersRef.current.length === 1) {
-        map.setView([properties[0].lat, properties[0].lng], 15);
-        hasInitialFitRef.current = true;
-      } else if (markersRef.current.length > 1) {
-        map.fitBounds(group.getBounds().pad(0.1));
-        hasInitialFitRef.current = true;
-      }
-    }
-
-    previousPropertiesLengthRef.current = properties.length;
+    // No auto-fit-to-markers here on purpose. With pagination, MapView only
+    // ever receives ~15 pins at a time, and fitting to a random time-sorted
+    // slice would produce a jumpy, unpredictable initial zoom. The default
+    // center/zoom on map init is the single source of truth for viewport.
 
     if (selectedIdRef.current) {
       const marker = markersMapRef.current.get(selectedIdRef.current);

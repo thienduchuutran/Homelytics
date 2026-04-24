@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 interface MapProperty {
   id: string;
@@ -20,7 +20,16 @@ interface MapProperty {
 }
 
 interface MapListProps {
+  // Full viewport result — drives the header count/stats.
   properties: MapProperty[];
+  // Sliced subset for the current page — this is what the list renders, and
+  // what the map renders markers for (kept in sync via the parent).
+  pagedProperties: MapProperty[];
+  currentPage: number;
+  totalPages: number;
+  pageStart: number; // 0-indexed start of current page in properties
+  pageEnd: number;   // exclusive end
+  onPageChange: (page: number) => void;
   onPropertyClick: (property: MapProperty) => void;
   selectedPropertyId?: string | null;
   isLoading?: boolean;
@@ -51,8 +60,29 @@ function median(values: number[]): number | null {
   return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 }
 
-export default function MapList({ properties, onPropertyClick, selectedPropertyId, isLoading, onPropertyHover }: MapListProps) {
+export default function MapList({
+  properties,
+  pagedProperties,
+  currentPage,
+  totalPages,
+  pageStart,
+  pageEnd,
+  onPageChange,
+  onPropertyClick,
+  selectedPropertyId,
+  isLoading,
+  onPropertyHover,
+}: MapListProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const listScrollRef = useRef<HTMLDivElement>(null);
+
+  // Scroll the list back to the top when the page changes — otherwise the new
+  // page loads mid-scroll from the previous page's position.
+  useEffect(() => {
+    if (listScrollRef.current) {
+      listScrollRef.current.scrollTop = 0;
+    }
+  }, [currentPage]);
 
   // Recomputes whenever the viewport's property set changes — e.g. as the
   // user pans from Beverly Hills to East LA, these numbers update live.
@@ -176,8 +206,43 @@ export default function MapList({ properties, onPropertyClick, selectedPropertyI
         )}
       </div>
 
+      {/* Pagination bar (only when multi-page) */}
+      {properties.length > 0 && totalPages > 1 && (
+        <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 bg-gray-50 text-xs flex-shrink-0">
+          <button
+            onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+            aria-label="Previous page"
+            className="inline-flex items-center gap-1 px-2 py-1 rounded font-medium text-gray-700 hover:bg-white hover:shadow-sm disabled:text-gray-300 disabled:hover:bg-transparent disabled:hover:shadow-none disabled:cursor-not-allowed transition-all"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Prev
+          </button>
+          <div className="text-gray-600 tabular-nums">
+            <span className="font-semibold text-gray-900">{pageStart + 1}</span>
+            <span className="text-gray-400">–</span>
+            <span className="font-semibold text-gray-900">{pageEnd}</span>
+            <span className="mx-1.5 text-gray-400">of</span>
+            <span className="font-semibold text-gray-900">{properties.length}</span>
+          </div>
+          <button
+            onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage === totalPages}
+            aria-label="Next page"
+            className="inline-flex items-center gap-1 px-2 py-1 rounded font-medium text-gray-700 hover:bg-white hover:shadow-sm disabled:text-gray-300 disabled:hover:bg-transparent disabled:hover:shadow-none disabled:cursor-not-allowed transition-all"
+          >
+            Next
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+      )}
+
       {/* List */}
-      <div className="flex-1 overflow-y-auto">
+      <div ref={listScrollRef} className="flex-1 overflow-y-auto">
         {properties.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
             <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -188,7 +253,7 @@ export default function MapList({ properties, onPropertyClick, selectedPropertyI
           </div>
         ) : (
           <div className="divide-y divide-gray-200">
-            {properties.map((property) => {
+            {pagedProperties.map((property) => {
               const isSelected = selectedPropertyId === property.id;
               const isHovered = hoveredId === property.id;
 
