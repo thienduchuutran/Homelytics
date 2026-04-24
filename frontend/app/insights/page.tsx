@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { parseFiltersFromQuery } from '@/app/lib/parseFiltersFromQuery';
 import FavoritesLink from '@/components/FavoritesLink';
 import ZipMedianBarChart from '@/components/ZipMedianBarChart';
+import PriceHistogramChart from '@/components/PriceHistogramChart';
 
 interface InsightsSummary {
   count: number;
@@ -225,9 +226,6 @@ function InsightsPageContent() {
       maximumFractionDigits: 0,
     }).format(value);
   };
-  
-  // Chart helpers
-  const maxHistCount = histogram.length > 0 ? Math.max(...histogram.map(h => h.count)) : 1;
   
   return (
     <div className="min-h-screen bg-gray-50">
@@ -484,33 +482,11 @@ function InsightsPageContent() {
 
             {/* Price Distribution Histogram */}
             <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Price Distribution</h3>
-              {histogram.length > 0 ? (
-                <div className="space-y-2">
-                  {histogram.map((bucket, idx) => (
-                    <div key={idx} className="flex items-center gap-4">
-                      <div className="w-32 text-xs text-gray-600">
-                        ${(bucket.bucketMin / 1000).toFixed(0)}k–${(bucket.bucketMax / 1000).toFixed(0)}k
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="bg-green-600 h-6 rounded flex items-center justify-end pr-2"
-                            style={{
-                              width: `${(bucket.count / maxHistCount) * 100}%`,
-                              minWidth: '30px',
-                            }}
-                          >
-                            <span className="text-white text-xs font-medium">{bucket.count}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-500">No histogram data available</p>
-              )}
+              <PriceHistogramChart
+                data={histogram}
+                medianPrice={summary?.medianPrice ?? null}
+                subtitle="Listings grouped into $50k price buckets. The dashed line marks the bucket containing the market median."
+              />
             </div>
             
             {/* Average $/bedroom by ZIP */}
