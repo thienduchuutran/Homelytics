@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { parseFiltersFromQuery } from '@/app/lib/parseFiltersFromQuery';
 import FavoritesLink from '@/components/FavoritesLink';
+import ZipMedianBarChart from '@/components/ZipMedianBarChart';
 
 interface InsightsSummary {
   count: number;
@@ -226,7 +227,6 @@ function InsightsPageContent() {
   };
   
   // Chart helpers
-  const maxZipCount = zipData.length > 0 ? Math.max(...zipData.map(z => z.count)) : 1;
   const maxHistCount = histogram.length > 0 ? Math.max(...histogram.map(h => h.count)) : 1;
   
   return (
@@ -473,72 +473,44 @@ function InsightsPageContent() {
               </div>
             )}
             
-            {/* Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-              {/* Median Price by ZIP */}
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h3 className="text-xl font-bold text-gray-900 mb-4">Median Price by ZIP</h3>
-                {zipData.length > 0 ? (
-                  <div className="space-y-3">
-                    {zipData.map((zip) => (
-                      <div key={zip.zip} className="flex items-center gap-4">
-                        <div className="w-20 text-sm font-medium text-gray-700">{zip.zip}</div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="bg-blue-600 h-8 rounded flex items-center justify-end pr-2"
-                              style={{
-                                width: `${(zip.count / maxZipCount) * 100}%`,
-                                minWidth: '40px',
-                              }}
-                            >
-                              {zip.medianPrice && (
-                                <span className="text-white text-xs font-medium">
-                                  {formatCurrency(zip.medianPrice)}
-                                </span>
-                              )}
-                            </div>
-                            <span className="text-sm text-gray-500">({zip.count})</span>
+            {/* Median Price by ZIP — full-width small-multiples chart */}
+            <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+              <ZipMedianBarChart
+                data={zipData}
+                overallMedianPrice={summary?.medianPrice ?? null}
+                subtitle="Two small-multiples compare total list price and $/sqft across ZIPs. The dashed line marks the overall market median."
+              />
+            </div>
+
+            {/* Price Distribution Histogram */}
+            <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Price Distribution</h3>
+              {histogram.length > 0 ? (
+                <div className="space-y-2">
+                  {histogram.map((bucket, idx) => (
+                    <div key={idx} className="flex items-center gap-4">
+                      <div className="w-32 text-xs text-gray-600">
+                        ${(bucket.bucketMin / 1000).toFixed(0)}k–${(bucket.bucketMax / 1000).toFixed(0)}k
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="bg-green-600 h-6 rounded flex items-center justify-end pr-2"
+                            style={{
+                              width: `${(bucket.count / maxHistCount) * 100}%`,
+                              minWidth: '30px',
+                            }}
+                          >
+                            <span className="text-white text-xs font-medium">{bucket.count}</span>
                           </div>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500">No ZIP data available</p>
-                )}
-              </div>
-              
-              {/* Price Distribution Histogram */}
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h3 className="text-xl font-bold text-gray-900 mb-4">Price Distribution</h3>
-                {histogram.length > 0 ? (
-                  <div className="space-y-2">
-                    {histogram.map((bucket, idx) => (
-                      <div key={idx} className="flex items-center gap-4">
-                        <div className="w-32 text-xs text-gray-600">
-                          ${(bucket.bucketMin / 1000).toFixed(0)}k–${(bucket.bucketMax / 1000).toFixed(0)}k
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="bg-green-600 h-6 rounded flex items-center justify-end pr-2"
-                              style={{
-                                width: `${(bucket.count / maxHistCount) * 100}%`,
-                                minWidth: '30px',
-                              }}
-                            >
-                              <span className="text-white text-xs font-medium">{bucket.count}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500">No histogram data available</p>
-                )}
-              </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500">No histogram data available</p>
+              )}
             </div>
             
             {/* Average $/bedroom by ZIP */}
