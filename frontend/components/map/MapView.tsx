@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -29,47 +29,150 @@ interface MapViewProps {
   hoveredPropertyId?: string | null;
 }
 
-// Fix Leaflet default icon issue in Next.js
-if (typeof window !== 'undefined') {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  delete (L.Icon.Default.prototype as any)._getIconUrl;
-  L.Icon.Default.mergeOptions({
-    iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+type PriceTier = 'low' | 'mid' | 'high';
+
+// Tier colors: below median (blue), near median (purple), above median (red).
+// Chosen to pop against OpenStreetMap's beige/green/tan tiles — the default
+// green/amber blended into parks and road casings.
+const TIER_COLORS: Record<PriceTier, string> = {
+  low: '#2563eb',
+  mid: '#a855f7',
+  high: '#ef4444',
+};
+
+const TIER_LABELS: Record<PriceTier, string> = {
+  low: 'Below median',
+  mid: 'Near median',
+  high: 'Above median',
+};
+
+// Rank-based tertiles so colors balance across the current viewport
+// rather than being skewed by price outliers.
+function computePriceTiers(properties: MapProperty[]): Map<string, PriceTier> {
+  const tiers = new Map<string, PriceTier>();
+  if (properties.length === 0) return tiers;
+
+  const prices = properties.map(p => p.price).sort((a, b) => a - b);
+  const t1 = prices[Math.floor(prices.length / 3)];
+  const t2 = prices[Math.floor((prices.length * 2) / 3)];
+
+  properties.forEach(p => {
+    if (p.price < t1) tiers.set(p.id, 'low');
+    else if (p.price < t2) tiers.set(p.id, 'mid');
+    else tiers.set(p.id, 'high');
   });
+
+  return tiers;
+}
+
+function applyMarkerStyle(
+  marker: L.CircleMarker,
+  state: 'normal' | 'hovered' | 'selected',
+  fillColor: string,
+) {
+  switch (state) {
+    case 'selected':
+      marker.setStyle({
+        radius: 14,
+        weight: 3,
+        color: '#ffffff',
+        fillColor,
+        fillOpacity: 1.0,
+      });
+      marker.bringToFront();
+      break;
+    case 'hovered':
+      marker.setStyle({
+        radius: 12,
+        weight: 1.5,
+        color: '#ffffff',
+        fillColor,
+        fillOpacity: 1.0,
+      });
+      marker.bringToFront();
+      break;
+    case 'normal':
+    default:
+      marker.setStyle({
+        radius: 8,
+        weight: 1.5,
+        color: '#ffffff',
+        fillColor,
+        fillOpacity: 0.8,
+      });
+      break;
+  }
 }
 
 export default function MapView({ properties, onMarkerClick, onBoundsChange, selectedPropertyId, hoveredPropertyId }: MapViewProps) {
   const mapRef = useRef<L.Map | null>(null);
-  const markersRef = useRef<L.Marker[]>([]);
-  const markersMapRef = useRef<Map<string, L.Marker>>(new Map()); // Map property ID to marker
+  const markersRef = useRef<L.CircleMarker[]>([]);
+  const markersMapRef = useRef<Map<string, L.CircleMarker>>(new Map());
+  const markerTiersRef = useRef<Map<string, PriceTier>>(new Map());
+  const legendRef = useRef<L.Control | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isMapReady, setIsMapReady] = useState(false);
   const hasInitialFitRef = useRef(false);
   const previousPropertiesLengthRef = useRef(0);
 
-  // Initialize map
+  // Mirror props into refs so leaflet event handlers (which outlive React renders)
+  // always see the latest selection/hover state.
+  const selectedIdRef = useRef<string | null | undefined>(selectedPropertyId);
+  const hoveredIdRef = useRef<string | null | undefined>(hoveredPropertyId);
+  useEffect(() => { selectedIdRef.current = selectedPropertyId; }, [selectedPropertyId]);
+  useEffect(() => { hoveredIdRef.current = hoveredPropertyId; }, [hoveredPropertyId]);
+
+  // Initialize map + price legend
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
-    // Create map centered on California
     const map = L.map(containerRef.current, {
       center: [34.0522, -118.2437], // Los Angeles, CA
       zoom: 10,
       zoomControl: true,
     });
 
-    // Add OpenStreetMap tile layer
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors',
       maxZoom: 19,
     }).addTo(map);
 
+    const legend = new L.Control({ position: 'bottomleft' });
+    legend.onAdd = () => {
+      const div = L.DomUtil.create('div', 'homelytics-price-legend');
+      div.style.cssText = [
+        'background: rgba(255, 255, 255, 0.96)',
+        'padding: 10px 12px',
+        'border-radius: 8px',
+        'box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15)',
+        'font-family: system-ui, -apple-system, Arial, sans-serif',
+        'font-size: 12px',
+        'line-height: 1.7',
+        'color: #374151',
+        'min-width: 140px',
+      ].join(';');
+      const dot = (color: string) => `
+        <span style="
+          display:inline-block;width:12px;height:12px;border-radius:50%;
+          background:${color};border:1.5px solid #ffffff;
+          box-shadow:0 0 0 1px rgba(0,0,0,0.08);flex-shrink:0;
+        "></span>`;
+      div.innerHTML = `
+        <div style="font-weight:600;margin-bottom:4px;color:#111827;">Price tier</div>
+        <div style="display:flex;align-items:center;gap:8px;">${dot(TIER_COLORS.low)}${TIER_LABELS.low}</div>
+        <div style="display:flex;align-items:center;gap:8px;">${dot(TIER_COLORS.mid)}${TIER_LABELS.mid}</div>
+        <div style="display:flex;align-items:center;gap:8px;">${dot(TIER_COLORS.high)}${TIER_LABELS.high}</div>
+      `;
+      L.DomEvent.disableClickPropagation(div);
+      L.DomEvent.disableScrollPropagation(div);
+      return div;
+    };
+    legend.addTo(map);
+    legendRef.current = legend;
+
     mapRef.current = map;
     setIsMapReady(true);
 
-    // Initial bounds change
     const bounds = map.getBounds();
     onBoundsChange({
       minLat: bounds.getSouth(),
@@ -78,7 +181,6 @@ export default function MapView({ properties, onMarkerClick, onBoundsChange, sel
       maxLng: bounds.getEast(),
     });
 
-    // Handle map move/zoom with debounce
     let debounceTimer: NodeJS.Timeout;
     const handleMoveEnd = () => {
       clearTimeout(debounceTimer);
@@ -103,34 +205,31 @@ export default function MapView({ properties, onMarkerClick, onBoundsChange, sel
     };
   }, [onBoundsChange]);
 
-  // Update markers when properties change
+  const priceTiers = useMemo(() => computePriceTiers(properties), [properties]);
+
+  // Create/recreate markers when properties or tier assignments change.
   useEffect(() => {
     if (!mapRef.current || !isMapReady) return;
 
     const map = mapRef.current;
 
-    // Clear existing markers
     markersRef.current.forEach(marker => marker.remove());
     markersRef.current = [];
+    markersMapRef.current.clear();
+    markerTiersRef.current.clear();
 
-    // Create normal icon (reused for all markers)
-    const normalIcon = L.icon({
-      iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-      iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-      popupAnchor: [1, -34],
-      shadowSize: [41, 41],
-    });
-
-    // Create new markers
     properties.forEach(property => {
-      const marker = L.marker([property.lat, property.lng], {
-        icon: normalIcon,
+      const tier = priceTiers.get(property.id) ?? 'mid';
+      const fillColor = TIER_COLORS[tier];
+
+      const marker = L.circleMarker([property.lat, property.lng], {
+        radius: 8,
+        weight: 1.5,
+        color: '#ffffff',
+        fillColor,
+        fillOpacity: 0.8,
       });
 
-      // Create popup content
       const popupContent = `
         <div style="min-width: 200px; font-family: Arial, sans-serif;">
           <div style="font-weight: bold; font-size: 14px; margin-bottom: 4px;">${property.address || 'Address not available'}</div>
@@ -151,22 +250,39 @@ export default function MapView({ properties, onMarkerClick, onBoundsChange, sel
       `;
 
       marker.bindPopup(popupContent);
-      
-      // Handle marker click
+
       marker.on('click', () => {
         onMarkerClick(property);
+      });
+
+      marker.on('mouseover', () => {
+        if (selectedIdRef.current === property.id) return;
+        applyMarkerStyle(marker, 'hovered', fillColor);
+      });
+      marker.on('mouseout', () => {
+        if (selectedIdRef.current === property.id) return;
+        if (hoveredIdRef.current === property.id) return;
+        applyMarkerStyle(marker, 'normal', fillColor);
       });
 
       marker.addTo(map);
       markersRef.current.push(marker);
       markersMapRef.current.set(property.id, marker);
+      markerTiersRef.current.set(property.id, tier);
+
+      // Carry selection/hover state over to freshly created markers.
+      if (selectedIdRef.current === property.id) {
+        applyMarkerStyle(marker, 'selected', fillColor);
+      } else if (hoveredIdRef.current === property.id) {
+        applyMarkerStyle(marker, 'hovered', fillColor);
+      }
     });
 
     // Only fit bounds on initial load (when properties first appear or significantly change)
     // Don't reset view when properties update due to pan/zoom
     const isInitialLoad = !hasInitialFitRef.current && properties.length > 0;
     const isSignificantChange = Math.abs(properties.length - previousPropertiesLengthRef.current) > properties.length * 0.5;
-    
+
     if (isInitialLoad || (isSignificantChange && !hasInitialFitRef.current)) {
       const group = new L.FeatureGroup(markersRef.current);
       if (markersRef.current.length === 1) {
@@ -177,17 +293,16 @@ export default function MapView({ properties, onMarkerClick, onBoundsChange, sel
         hasInitialFitRef.current = true;
       }
     }
-    
+
     previousPropertiesLengthRef.current = properties.length;
-    
-    // If there's a selected property, ensure its popup is open
-    if (selectedPropertyId) {
-      const marker = markersMapRef.current.get(selectedPropertyId);
+
+    if (selectedIdRef.current) {
+      const marker = markersMapRef.current.get(selectedIdRef.current);
       if (marker) {
         marker.openPopup();
       }
     }
-  }, [properties, isMapReady, onMarkerClick, selectedPropertyId, hoveredPropertyId]);
+  }, [properties, isMapReady, priceTiers, onMarkerClick]);
 
   // Handle quick view from popup button
   useEffect(() => {
@@ -204,92 +319,41 @@ export default function MapView({ properties, onMarkerClick, onBoundsChange, sel
     };
   }, [properties, onMarkerClick]);
 
-  // Update marker highlighting when hoveredPropertyId changes
+  // Sync marker visuals when selection or list-hover changes.
   useEffect(() => {
     if (!mapRef.current || !isMapReady) return;
 
-    // Create yellow highlighted icon
-    const yellowIcon = L.divIcon({
-      className: 'custom-yellow-marker',
-      html: `
-        <div style="
-          width: 30px;
-          height: 41px;
-          background-color: #fbbf24;
-          border: 3px solid #ffffff;
-          border-radius: 50% 50% 50% 0;
-          transform: rotate(-45deg);
-          box-shadow: 0 3px 14px rgba(0,0,0,0.4);
-          position: relative;
-        ">
-          <div style="
-            width: 12px;
-            height: 12px;
-            background-color: #ffffff;
-            border-radius: 50%;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(45deg);
-          "></div>
-        </div>
-      `,
-      iconSize: [30, 41],
-      iconAnchor: [15, 41],
-      popupAnchor: [0, -36],
-    });
-
-    // Create normal icon
-    const normalIcon = L.icon({
-      iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-      iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-      popupAnchor: [1, -34],
-      shadowSize: [41, 41],
-    });
-
     markersMapRef.current.forEach((marker, propertyId) => {
-      const isHovered = hoveredPropertyId === propertyId;
-      
-      if (isHovered) {
-        // Change to yellow marker
-        marker.setIcon(yellowIcon);
-        const element = marker.getElement();
-        if (element) {
-          element.style.zIndex = '1000';
-        }
+      const tier = markerTiersRef.current.get(propertyId) ?? 'mid';
+      const fillColor = TIER_COLORS[tier];
+
+      if (selectedPropertyId === propertyId) {
+        applyMarkerStyle(marker, 'selected', fillColor);
+      } else if (hoveredPropertyId === propertyId) {
+        applyMarkerStyle(marker, 'hovered', fillColor);
       } else {
-        // Change back to normal marker
-        marker.setIcon(normalIcon);
-        const element = marker.getElement();
-        if (element) {
-          element.style.zIndex = '';
-        }
+        applyMarkerStyle(marker, 'normal', fillColor);
       }
     });
-  }, [hoveredPropertyId, isMapReady]);
+  }, [selectedPropertyId, hoveredPropertyId, isMapReady]);
 
   // Pan to selected property (only when selectedPropertyId is set, not when it becomes null)
   useEffect(() => {
     if (!mapRef.current || !selectedPropertyId) {
       // When selectedPropertyId becomes null (quick view closes), preserve current viewport
-      // Don't do anything - just keep the map where it is
       return;
     }
-    
+
     const property = properties.find(p => p.id === selectedPropertyId);
     if (property) {
-      // Only pan if we're not already close to this property
       const currentCenter = mapRef.current.getCenter();
       const distance = currentCenter.distanceTo([property.lat, property.lng]);
-      
+
       // If property is more than 1km away, pan to it; otherwise just open popup
       if (distance > 1000) {
         mapRef.current.setView([property.lat, property.lng], Math.max(mapRef.current.getZoom(), 15));
       }
-      
+
       const marker = markersMapRef.current.get(selectedPropertyId);
       if (marker) {
         marker.openPopup();
@@ -305,4 +369,3 @@ export default function MapView({ properties, onMarkerClick, onBoundsChange, sel
     />
   );
 }
-
