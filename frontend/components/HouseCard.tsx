@@ -10,6 +10,8 @@ interface HouseCardProps {
   onQuickView?: (id: string) => void;
 }
 
+const toHttps = (url: string) => url?.replace(/^http:\/\//i, 'https://');
+
 export default function HouseCard({ house, onQuickView }: HouseCardProps) {
   const formatPrice = (price: number) => {
     if (house.status === 'for-rent') {
@@ -49,7 +51,7 @@ export default function HouseCard({ house, onQuickView }: HouseCardProps) {
     >
       <div className="relative h-64 w-full">
         <Image
-          src={house.imageUrl}
+          src={toHttps(house.imageUrl)}
           alt={house.title}
           fill
           className="object-cover"

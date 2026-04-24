@@ -6,6 +6,8 @@ import Link from 'next/link';
 import FavoriteButton from './FavoriteButton';
 import FavoritesLink from './FavoritesLink';
 
+const toHttps = (url: string) => url?.replace(/^http:\/\//i, 'https://');
+
 export interface PropertyDetail {
   id: string;
   listingId: string | null;
@@ -383,7 +385,7 @@ export default function PropertyDetailView({ propertyId, showHeader = true, show
         <div className="mb-8">
           <div className="relative h-[500px] w-full rounded-2xl overflow-hidden bg-gray-200 mb-4">
             <Image
-              src={currentImage}
+              src={toHttps(currentImage)}
               alt={property.title}
               fill
               className="object-cover"
@@ -429,7 +431,7 @@ export default function PropertyDetailView({ propertyId, showHeader = true, show
                   }`}
                 >
                   <Image
-                    src={img}
+                    src={toHttps(img)}
                     alt={`Property image ${idx + 1}`}
                     fill
                     className="object-cover"
