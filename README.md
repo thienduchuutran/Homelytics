@@ -2,7 +2,12 @@
 
 ### Data-Driven Real Estate Intelligence Platform
 
+
 Homelytics is a modern real estate platform that helps users discover, evaluate, and compare homes through searchable listings, interactive maps, and market analytics. The app combines a static Next.js frontend with a PHP API layer and MySQL data to deliver a fast, cPanel-friendly deployment model.
+
+🔗 **Live Demo:** (https://homelytics-iota.vercel.app/houses)  
+🧠 **Tech Stack:** Next.js · PHP · MySQL · Redis · TailwindCSS · Chart.js · JWT Auth · Leaflet 
+
 
 ## Product Vision
 
