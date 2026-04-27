@@ -4,8 +4,8 @@
 **Homelytics** is a full-stack real-estate web application that empowers users to discover, analyze, and personalize home searches through data-driven insights and smart AI recommendations.  
 Built with **Next.js**, **Go**, and **MySQL**, Homelytics bridges elegant UI design with high-performance backend analytics—helping buyers make informed decisions through **interactive maps**, **AI-powered recommendations**, and **real-time market visualizations**.
 
-🔗 **Live Demo:** *Coming Soon*  
-🧠 **Tech Stack:** Next.js · Go · MySQL · Redis · TailwindCSS · Chart.js · JWT Auth  
+🔗 **Live Demo:** (https://homelytics-iota.vercel.app/houses)  
+🧠 **Tech Stack:** Next.js · PHP · MySQL · Redis · TailwindCSS · Chart.js · JWT Auth · Leaflet 
 
 ---
 
